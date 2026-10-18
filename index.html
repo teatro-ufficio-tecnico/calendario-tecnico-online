@@ -449,5 +449,49 @@ window.addEventListener('load',pulsanti);
 })();
 </script>
 
+<style>
+@media(max-width:800px){
+ #mobileCompactMenu{background:#e4e7ec!important;border:1px solid #b8c0cb!important;border-radius:12px!important;box-shadow:none!important;overflow:hidden}
+ #mobileCompactMenu>summary{padding:0!important;list-style:none;color:#202c3d!important;background:#dce1e7!important}
+ #mobileCompactMenu>summary::-webkit-details-marker{display:none}
+ #mobileCompactMenu .tsc-menu-brand{display:block;padding:14px 16px 9px;font-size:18px;font-weight:750;letter-spacing:.02em;background:#cbd2dc;color:#192638}
+ #mobileCompactMenu .tsc-menu-label{display:block;padding:11px 16px;font-size:15px;font-weight:600}
+ #mobileCompactMenu .tsc-menu-label::before{content:'▸ ';display:inline}
+ #mobileCompactMenu[open] .tsc-menu-label::before{content:'▾ '}
+ #mobileCompactMenu[open]>summary{border-bottom:1px solid #b8c0cb}
+ #mobileCompactMenu>div{background:#e4e7ec!important}
+ #mobileCompactMenu nav button{background:#d4dae3!important;border:1px solid #b9c2ce!important;color:#243249!important;border-radius:8px}
+ #mobileCompactMenu nav button.active,#mobileCompactMenu nav button[aria-current="page"]{background:#4f46e5!important;border-color:#4338ca!important;color:white!important;box-shadow:inset 4px 0 0 #bcb7ff;font-weight:700}
+ #mobileCompactMenu input,#mobileCompactMenu select{background:#f1f3f6!important;border-color:#b9c2ce!important;color:#243249!important}
+ #mobileCompactMenu .tsc-filter-selected{background:#e4e1ff!important;border:2px solid #6554d9!important;color:#302479!important}
+ #mobileCompactMenu button:focus-visible,#mobileCompactMenu input:focus-visible,#mobileCompactMenu select:focus-visible{outline:3px solid #6554d9;outline-offset:2px}
+ #mobileCompactMenu button:active{background:#c1c8d3!important}
+}
+</style>
+<script>
+(()=>{
+ function decorateMenu(){
+  const menu=document.getElementById('mobileCompactMenu');if(!menu)return;
+  const summary=menu.querySelector('summary');
+  if(summary&&!summary.querySelector('.tsc-menu-brand')){
+   summary.replaceChildren();
+   const brand=document.createElement('span');brand.className='tsc-menu-brand';brand.textContent='Teatro Stabile Catania';
+   const label=document.createElement('span');label.className='tsc-menu-label';label.textContent='Menu e strumenti';
+   summary.append(brand,label);
+  }
+  menu.querySelectorAll('nav button[data-page]').forEach(button=>{
+   if(button.classList.contains('active')){if(button.getAttribute('aria-current')!=='page')button.setAttribute('aria-current','page');}
+   else if(button.hasAttribute('aria-current'))button.removeAttribute('aria-current');
+  });
+  menu.querySelectorAll('.filters input,.filters select').forEach(field=>field.classList.toggle('tsc-filter-selected',!!field.value.trim()));
+ }
+ document.addEventListener('input',decorateMenu);
+ document.addEventListener('change',decorateMenu);
+ document.addEventListener('click',e=>{if(e.target instanceof Element&&e.target.closest('#mobileCompactMenu nav button'))setTimeout(decorateMenu,0);});
+ const menu=document.getElementById('mobileCompactMenu');
+ if(menu)new MutationObserver(decorateMenu).observe(menu,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+ window.addEventListener('load',decorateMenu);decorateMenu();
+})();
+</script>
 </body>
 </html>
