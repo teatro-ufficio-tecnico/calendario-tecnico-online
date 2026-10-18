@@ -331,4 +331,62 @@ window.addEventListener('load',pulsanti);
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded",mount); else mount();
 })();
 </script>
-<div style="text-align:center;font-size:11px;opacity:.6;padding:6px">Versione completa 5 · spettacoli e scorciatoie</div></body></html>
+<div style="text-align:center;font-size:11px;opacity:.6;padding:6px">Versione completa 5 · spettacoli e scorciatoie</div><script>
+/* Correzione per index.html completo, versione 5. */
+(() => {
+  if (window.tscClickFix) return;
+  window.tscClickFix = true;
+
+  function hideExtraLabels() {
+    document.getElementById('keyboardTools')?.remove();
+    document.querySelectorAll('p,div,small').forEach(el => {
+      if (el.childElementCount === 0 && /^(Versione completa \d+ · spettacoli e scorciatoie|Aggiornamento spettacoli · versione \d+|Spettacoli aggiornati · versione \d+)$/.test(el.textContent.trim())) el.hidden = true;
+    });
+  }
+  mountKeyboardTools = hideExtraLabels;
+  const originalCopy = copyCalendarCard;
+  copyCalendarCard = function () {
+    originalCopy();
+    if (cardClipboard) {
+      close();
+      toast('Card copiata. Clicca sul giorno di destinazione, poi Ctrl + V.');
+    }
+  };
+
+  document.addEventListener('click', event => {
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest('#modal')) return;
+    const ref = cardReference(event.target);
+    if (ref) {
+      selectedCard = ref;
+      pasteTarget = null;
+      paintCardSelection();
+      return;
+    }
+    const cell = event.target.closest('.cell[data-cell-date]');
+    if (!cell || !cardClipboard) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    pasteTarget = {
+      date: cell.dataset.cellDate,
+      type: cell.dataset.cellType,
+      id: cell.dataset.cellId
+    };
+    paintCardSelection();
+    toast('Giorno selezionato: ' + pasteTarget.date + '. Premi Ctrl + V. Esc per uscire dalla copia.');
+  }, true);
+
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    cardClipboard = null;
+    pasteTarget = null;
+    selectedCard = null;
+    paintCardSelection();
+    close();
+    toast('Modalità copia terminata.');
+  }, true);
+  hideExtraLabels();
+})();
+</script>
+</body>
+</html>
