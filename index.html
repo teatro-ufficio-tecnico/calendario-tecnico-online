@@ -493,5 +493,41 @@ window.addEventListener('load',pulsanti);
  window.addEventListener('load',decorateMenu);decorateMenu();
 })();
 </script>
+<script>
+/* Apertura card da ?evento=ID, anche per spettacoli e attrezzatura. */
+(()=>{
+ if(window.tscNotificationCardFix)return;
+ window.tscNotificationCardFix=true;
+ let pending=null,lastOpened='',timer=null;
+ function eventFromURL(value){try{const url=new URL(value,location.href);return url.origin===location.origin?url.searchParams.get('evento'):null;}catch{return null;}}
+ function requestOpen(id,force=false){
+  if(!id||(!force&&String(id)===lastOpened))return;
+  clearTimeout(timer);pending={id:String(id),deadline:Date.now()+20000};
+  timer=setTimeout(openWhenReady,100);
+ }
+ function openWhenReady(){
+  if(!pending)return;
+  if(!remoteReady){if(Date.now()<pending.deadline){timer=setTimeout(openWhenReady,300);return;}pending=null;toast('Impossibile aprire la card: sincronizzazione non completata. Riprova quando torna la connessione.');return;}
+  const id=pending.id;pending=null;
+  const types=[['shifts',viewShift],['shows',viewShow],['moves',viewMove],['equipmentEvents',viewEquip]];
+  for(const [key,view] of types){
+   const entry=(db[key]||[]).find(x=>String(x.id)===id);if(!entry)continue;
+   page='calendar';if(entry.date)date=new Date(entry.date+'T12:00:00');
+   render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;
+   view(entry.id);lastOpened=id;return;
+  }
+  toast('La card collegata alla notifica non è più disponibile: potrebbe essere stata eliminata.');
+ }
+ requestOpen(eventFromURL(location.href));
+ window.addEventListener('pageshow',()=>requestOpen(eventFromURL(location.href)));
+ window.addEventListener('popstate',()=>requestOpen(eventFromURL(location.href)));
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)requestOpen(eventFromURL(location.href));});
+ if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{
+  const data=event.data;if(!data||typeof data!=='object')return;
+  const id=data.evento||eventFromURL(data.url||data.href||'');
+  if(id)requestOpen(id,true);
+ });
+})();
+</script>
 </body>
 </html>
