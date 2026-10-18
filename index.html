@@ -387,6 +387,67 @@ window.addEventListener('load',pulsanti);
   }, true);
   hideExtraLabels();
 })();
+</script><style>
+#mobileCompactMenu{display:none}
+@media(max-width:800px){
+ body .app>aside{display:none!important}
+ body .app{display:block!important}
+ body .app>main{padding:12px!important;min-width:0}
+ #mobileCompactMenu{display:block;margin:0 0 12px;border:1px solid #dce2ec;border-radius:12px;background:#fff}
+ #mobileCompactMenu>summary{padding:13px 15px;font-size:16px;font-weight:600;color:#24324a;cursor:pointer}
+ #mobileCompactMenu>div{padding:0 12px 12px}
+ #mobileCompactMenu h3{font-size:13px;margin:14px 0 8px;color:#526078}
+ #mobileCompactMenu nav{display:grid!important;grid-template-columns:1fr 1fr;gap:7px;overflow:visible!important}
+ #mobileCompactMenu nav button{white-space:normal!important;width:100%;text-align:left;padding:10px!important;font-size:14px!important}
+ #mobileCompactMenu .mode,#mobileCompactMenu #calendarPushControls,#mobileCompactMenu .mobile-documents{display:flex!important;flex-wrap:wrap;gap:8px}
+ #mobileCompactMenu .filters{display:grid!important;grid-template-columns:1fr!important;gap:8px;margin:0}
+ #mobileCompactMenu button,#mobileCompactMenu input,#mobileCompactMenu select{font-size:16px;max-width:100%;min-height:42px}
+ #mobileCompactMenu .mode .hidden{display:none!important}
+ main>.header{margin-bottom:10px!important;display:block!important}
+ main>.header .top,main>p.sub,main>#stats{display:none!important}
+ main>.header h1{font-size:25px!important;margin:0!important}
+ #calendarControls .bar{display:flex!important;flex-wrap:wrap!important;align-items:center;gap:7px!important;margin:8px 0 12px!important}
+ #calendarControls #previous,#calendarControls #following{width:36px!important;min-width:36px!important;padding:8px!important;flex:0 0 36px}
+ #calendarControls #range{font-size:14px!important;line-height:1.25!important;white-space:normal;flex:1;min-width:110px;text-align:center}
+ #calendarControls #today{font-size:14px!important;padding:8px 10px!important}
+ #calendarControls .spacer{display:none!important}
+ #keyboardTools,#tscKeyBar{display:none!important}
+}
+</style>
+<script>
+/* Menu compatto mobile: mantiene gli elementi e i loro eventi originali. */
+(()=>{
+ if(document.getElementById('mobileCompactMenu'))return;
+ const main=document.querySelector('main');if(!main)return;
+ const menu=document.createElement('details');menu.id='mobileCompactMenu';
+ const summary=document.createElement('summary');summary.textContent='Menu e strumenti';menu.append(summary);
+ const panel=document.createElement('div');menu.append(panel);main.prepend(menu);
+ const sections={};
+ for(const [key,title] of [['nav','Sezioni'],['access','Accesso e sincronizzazione'],['notifications','Notifiche'],['documents','PDF settimana'],['filters','Ricerca e filtri']]){
+  const section=document.createElement('section'),h=document.createElement('h3');h.textContent=title;section.append(h);const body=document.createElement('div');if(key==='documents')body.className='mobile-documents';section.append(body);panel.append(section);sections[key]={section,body};
+ }
+ const moved=new Map(),media=matchMedia('(max-width:800px)');
+ function transfer(el,key){if(!el||menu.contains(el)||moved.has(el))return;const mark=document.createComment('posizione originale menu mobile');el.before(mark);moved.set(el,mark);sections[key].body.append(el);}
+ function refresh(){
+  if(media.matches){
+   transfer(document.getElementById('nav'),'nav');
+   transfer(document.querySelector('main .header .mode'),'access');
+   transfer(document.getElementById('calendarPushControls'),'notifications');
+   transfer(document.getElementById('scaricaPDFSettimana'),'documents');
+   transfer(document.getElementById('condividiPDFSettimana'),'documents');
+   transfer(document.querySelector('#calendarControls .filters'),'filters');
+  }else{
+   for(const [el,mark] of moved){if(mark.parentNode){mark.replaceWith(el);}}
+   moved.clear();menu.open=false;
+  }
+  for(const {section,body} of Object.values(sections)){const hidden=!body.children.length;if(section.hidden!==hidden)section.hidden=hidden;}
+ }
+ menu.addEventListener('click',e=>{if(e.target.closest('button[data-page]'))menu.open=false;});
+ media.addEventListener('change',refresh);
+ const observer=new MutationObserver(refresh);observer.observe(main,{childList:true,subtree:true});
+ window.addEventListener('load',refresh);refresh();
+})();
 </script>
+
 </body>
 </html>
