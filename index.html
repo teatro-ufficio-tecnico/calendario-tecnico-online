@@ -768,7 +768,39 @@ document.addEventListener('click',event=>{
 },true);
 if(active())render();
 })();
-</script>
-  
+</script><script>
+/* Coda invii: non scarta più un salvataggio mentre è in corso il precedente.
+   Non aggiunge letture automatiche e non modifica le card o i moduli. */
+(()=>{
+ 'use strict';if(window.tscSaveQueueV1)return;window.tscSaveQueueV1=true;
+ let pending=null,running=false,retry=null;
+ async function flush(){
+  if(running||!pending)return;
+  if(!remoteReady){setStatus('⚠️ Modifica locale: collegamento online non pronto');return;}
+  running=true;savingRemote=true;
+  try{
+   while(pending){
+    const item=pending;setStatus('☁️ Salvataggio online in corso…');
+    const response=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.'+SUPABASE_ROW_ID,{
+     method:'PATCH',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({content:item.snapshot})
+    });
+    if(!response.ok)throw Error('HTTP '+response.status+': '+(await response.text()).slice(0,180));
+    const rows=await response.json();
+    if(!Array.isArray(rows)||!rows.length)throw Error('Nessuna riga aggiornata: controllare permessi e ID del calendario.');
+    if(pending===item)pending=null;
+   }
+   setStatus('☁️ Salvato online');
+  }catch(error){
+   console.error('Salvataggio calendario:',error);
+   setStatus('⚠️ Non salvato online · modifica solo locale');
+   if(typeof toast==='function')toast('Invio online non riuscito. Non ricaricare: conserva un backup. Nuovo tentativo tra 15 secondi.');
+   clearTimeout(retry);retry=setTimeout(flush,15000);
+  }finally{running=false;savingRemote=false;}
+ }
+ pushRemote=function(){pending={snapshot:JSON.parse(JSON.stringify(db))};clearTimeout(retry);return flush();};
+ window.addEventListener('online',flush);
+ window.addEventListener('beforeunload',event=>{if(pending||running){event.preventDefault();event.returnValue='';}});
+})();
+</script>  
 </body>
 </html>
