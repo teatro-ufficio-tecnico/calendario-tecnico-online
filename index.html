@@ -550,6 +550,48 @@ window.addEventListener('load',pulsanti);
  const main=document.querySelector('main');if(main)new MutationObserver(insertLogo).observe(main,{childList:true,subtree:true});
  window.addEventListener('load',insertLogo);insertLogo();
 })();
+</script><style>
+#moveForm .van-color-preview{padding:12px;border-radius:8px;border-left:5px solid;line-height:1.4}
+#moveForm .van-color-field select{min-height:44px}
+</style>
+<script>
+/* Colori indipendenti per le card dei movimenti furgone. */
+(()=>{
+'use strict';
+if(window.tscVanColors)return;window.tscVanColors=true;
+const palette={verde:['Verde','#ddf4ef','#087b6b','#05695e'],viola:['Viola','#f0e6ff','#7050b8','#44266f'],blu:['Blu','#e3efff','#2863ad','#153c70'],arancione:['Arancione','#fff0df','#ac590b','#713c0b'],rosso:['Rosso','#ffe5e7','#b13348','#7b2333'],giallo:['Giallo','#fff8d6','#9a7d0a','#6a5608'],grigio:['Grigio','#eef0f3','#5c6773','#3b444d'],rosa:['Rosa','#fce5f1','#a43472','#72234f']};
+const valid=value=>Object.prototype.hasOwnProperty.call(palette,value)?value:'verde';
+function paint(){
+ document.querySelectorAll('[data-view-move],[data-open-move]').forEach(node=>{
+  const entry=db.moves.find(x=>String(x.id)===String(node.dataset.viewMove||node.dataset.openMove));if(!entry)return;
+  const card=node.closest('.card')||node.closest('.item');if(!card)return;
+  const color=palette[valid(entry.cardColor)];card.style.background=color[1];card.style.color=color[3];card.style.borderLeftColor=color[2];if(card.classList.contains('item'))card.style.borderLeftWidth='5px';
+ });
+}
+const original=moveForm;
+moveForm=function(mid,dateArg,vehicleArg,toArg){
+ original.apply(this,arguments);
+ const form=document.getElementById('moveForm');if(!form||form.querySelector('[name="cardColor"]'))return;
+ const old=db.moves.find(x=>x.id===mid),field=document.createElement('label');field.className='full van-color-field';field.append(document.createTextNode('Colore della card'));
+ const select=document.createElement('select');select.name='cardColor';
+ for(const [key,color] of Object.entries(palette)){const option=document.createElement('option');option.value=key;option.textContent=color[0];select.append(option);}
+ select.value=valid(old?.cardColor);field.append(select);
+ const preview=document.createElement('div');preview.className='full van-color-preview';preview.textContent='Anteprima del colore del movimento';
+ const root=form.querySelector('.form');root.append(field,preview);
+ function update(){const color=palette[valid(select.value)];preview.style.background=color[1];preview.style.borderLeftColor=color[2];preview.style.color=color[3];}
+ select.onchange=update;update();
+ form.onsubmit=event=>{
+  event.preventDefault();if(!unlocked)return;
+  const f=new FormData(form);
+  const entry={...(old||{}),id:old?old.id:uid(),vehicle:String(f.get('vehicle')||''),date:String(f.get('date')||''),start:String(f.get('start')||''),end:String(f.get('end')||''),from:String(f.get('from')||'').trim(),to:String(f.get('to')||'').trim(),driver:String(f.get('driver')||''),cargo:String(f.get('cargo')||'').trim(),status:String(f.get('status')||'In attesa'),notes:String(f.get('notes')||''),cardColor:valid(f.get('cardColor'))};
+  if(!entry.to||!entry.date||!entry.vehicle||!entry.start||!entry.end||entry.start===entry.end)return toast('Completa destinazione, data, furgone e orari.');
+  if(old)db.moves=db.moves.map(x=>x.id===entry.id?entry:x);else db.moves.push(entry);
+  save();close();render();paint();
+ };
+};
+const content=document.getElementById('content');if(content)new MutationObserver(paint).observe(content,{childList:true,subtree:true});paint();
+})();
 </script>
+
 </body>
 </html>
