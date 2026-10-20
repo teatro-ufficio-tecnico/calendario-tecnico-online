@@ -730,6 +730,45 @@ document.addEventListener('click',event=>{
 },true);
 if(isEquipmentPage())render();else updateLabels();
 })();
+</script><style>
+.equipment-events-v2{padding:14px;display:grid;gap:12px}
+.equipment-events-v2 .equipment-event-card{display:block;width:100%;text-align:left;border:1px solid #dce4ee;border-left:5px solid;border-radius:10px;padding:14px;line-height:1.45}
+.equipment-events-v2 .equipment-event-card b,.equipment-events-v2 .equipment-event-card small{display:block}
+.equipment-events-v2 .equipment-event-card small{margin-top:6px;white-space:pre-wrap}
+.equipment-events-v2 .card-photo-thumb{display:block;width:100%;max-height:150px;object-fit:contain;margin-top:9px}
+@media(max-width:800px){.equipment-events-v2{padding:12px}.equipment-events-v2 .equipment-event-card{font-size:15px!important}.equipment-events-v2 .equipment-create{width:100%;font-size:16px;min-height:44px}}
+</style>
+<script>
+/* Correzione vista Attrezzatura per menu mobile e desktop, versione 2. */
+(()=>{
+'use strict';if(window.tscEquipmentMenuV2)return;window.tscEquipmentMenuV2=true;
+const colors={verde:['#ddf4ef','#087b6b','#05695e'],viola:['#f0e6ff','#7050b8','#44266f'],blu:['#e3efff','#2863ad','#153c70'],arancione:['#fff0df','#ac590b','#713c0b'],rosso:['#ffe5e7','#b13348','#7b2333'],giallo:['#fff8d6','#9a7d0a','#6a5608'],grigio:['#eef0f3','#5c6773','#3b444d'],rosa:['#fce5f1','#a43472','#72234f']};
+const active=()=>page==='equipment'||page==='equipmentEvents';
+function drawEvents(){
+ const first=fmt(monday(date)),last=fmt(plus(monday(date),6)),q=(document.getElementById('search')?.value||'').trim().toLowerCase();
+ const entries=(db.equipmentEvents||[]).filter(x=>x.date>=first&&x.date<=last&&(!q||[x.title,x.notes,x.date,x.time].join(' ').toLowerCase().includes(q))).slice().sort((a,b)=>(a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')));
+ const cards=entries.map(x=>{
+  const c=Object.prototype.hasOwnProperty.call(colors,x.cardColor)?colors[x.cardColor]:colors.arancione;
+  const photo=typeof x.cardImage==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(x.cardImage)?'<img class="card-photo-thumb" alt="Foto attrezzatura" loading="lazy" src="'+esc(x.cardImage)+'">':'';
+  return '<button type="button" class="card equip equipment-event-card" data-view-equip="'+esc(x.id)+'" style="background:'+c[0]+';border-left-color:'+c[1]+';color:'+c[2]+'"><b>'+esc(x.title||'Evento attrezzatura')+'</b><small>'+esc(x.date)+(x.time?' · '+esc(x.time):'')+'</small>'+(x.notes?'<small>'+esc(x.notes)+'</small>':'')+photo+'</button>';
+ }).join('');
+ document.getElementById('content').innerHTML='<div class="equipment-events-v2" data-equipment-view="2">'+(unlocked?'<button type="button" class="primary equipment-create" id="equipmentCreateEventV2">＋ Nuovo evento attrezzatura</button>':'')+(cards||'<div class="empty">Nessun evento attrezzatura nella settimana selezionata.</div>')+'</div>';
+}
+equipment=drawEvents;equipmentEventsPage=drawEvents;
+function finish(){if(!active())return;const title=document.getElementById('title');if(title)title.textContent='Eventi attrezzatura';const shift=document.getElementById('newShift');if(shift)shift.classList.add('hidden');const controls=document.getElementById('calendarControls');if(controls)controls.classList.remove('hidden');}
+const originalRender=render;
+render=function(){const result=originalRender.apply(this,arguments);if(active()){if(!document.querySelector('[data-equipment-view="2"]'))drawEvents();finish();}return result;};
+document.addEventListener('click',event=>{
+ if(!(event.target instanceof Element))return;
+ const button=event.target.closest('button');if(!button)return;
+ if(button.id==='equipmentCreateEventV2'){event.preventDefault();event.stopImmediatePropagation();equipForm(null,fmt(date));return;}
+ if(button.dataset.page==='equipment'||button.dataset.page==='equipmentEvents'){
+  event.preventDefault();event.stopImmediatePropagation();page='equipment';render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;
+ }
+},true);
+if(active())render();
+})();
 </script>
+  
 </body>
 </html>
