@@ -591,6 +591,95 @@ moveForm=function(mid,dateArg,vehicleArg,toArg){
 };
 const content=document.getElementById('content');if(content)new MutationObserver(paint).observe(content,{childList:true,subtree:true});paint();
 })();
+</script><style>
+.card-photo-editor{display:grid;gap:9px}.card-photo-editor img{display:block;max-width:100%;max-height:180px;object-fit:contain;border-radius:8px}.card-photo-thumb{display:block;width:100%;max-height:95px;object-fit:contain;margin-top:7px;border-radius:6px}.card-photo-detail{display:block;max-width:100%;max-height:320px;object-fit:contain;margin:12px auto;border-radius:8px}.card-color-sample{padding:12px;border-left:5px solid;border-radius:8px}.card-photo-editor input{max-width:100%;font-size:16px}
+</style>
+<script>
+/* Foto per furgone e attrezzatura, colori card attrezzatura. */
+(()=>{
+'use strict';if(window.tscCardPhotos)return;window.tscCardPhotos=true;
+const palette={verde:['Verde','#ddf4ef','#087b6b','#05695e'],viola:['Viola','#f0e6ff','#7050b8','#44266f'],blu:['Blu','#e3efff','#2863ad','#153c70'],arancione:['Arancione','#fff0df','#ac590b','#713c0b'],rosso:['Rosso','#ffe5e7','#b13348','#7b2333'],giallo:['Giallo','#fff8d6','#9a7d0a','#6a5608'],grigio:['Grigio','#eef0f3','#5c6773','#3b444d'],rosa:['Rosa','#fce5f1','#a43472','#72234f']};
+const valid=(value,fallback)=>Object.prototype.hasOwnProperty.call(palette,value)?value:fallback;
+const safeImage=value=>typeof value==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
+function compress(file){return new Promise((resolve,reject)=>{
+ if(file.size>20*1024*1024)return reject(Error('La foto supera 20 MB. Scegli un’immagine più piccola.'));
+ const url=URL.createObjectURL(file),img=new Image();
+ img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Formato immagine non leggibile dal browser. Prova una foto JPEG o PNG, oppure uno screenshot.'));};
+ img.onload=()=>{try{
+  if(!img.naturalWidth||!img.naturalHeight)throw Error('Immagine non valida.');
+  const canvas=document.createElement('canvas');let max=1000,result='';
+  for(let pass=0;pass<5;pass++){
+   const scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+   const ctx=canvas.getContext('2d');if(!ctx)throw Error('Elaborazione foto non disponibile.');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
+   result=canvas.toDataURL('image/jpeg',0.72);if(result.length<=140000)break;max=Math.round(max*0.75);
+  }
+  if(!safeImage(result)||result.length>140000)throw Error('La foto è ancora troppo pesante. Scegline una più piccola.');resolve(result);
+ }catch(error){reject(error);}finally{URL.revokeObjectURL(url);}};img.src=url;
+});}
+function paint(){
+ for(const [name,key,fallback] of [['move','moves','verde'],['equip','equipmentEvents','arancione']]){
+  document.querySelectorAll('[data-view-'+name+'],[data-open-'+name+']').forEach(node=>{
+   const id=node.getAttribute('data-view-'+name)||node.getAttribute('data-open-'+name),entry=(db[key]||[]).find(x=>String(x.id)===id);if(!entry)return;
+   const card=node.closest('.card')||node.closest('.item');if(!card)return;
+   const color=palette[valid(entry.cardColor,fallback)];card.style.background=color[1];card.style.color=color[3];card.style.borderLeftColor=color[2];if(card.classList.contains('item'))card.style.borderLeftWidth='5px';
+   let image=card.querySelector('img.card-photo-thumb');
+   if(safeImage(entry.cardImage)){
+    if(!image){image=document.createElement('img');image.className='card-photo-thumb';image.alt='Foto allegata alla card';image.loading='lazy';(card.querySelector('.info')||card).append(image);}
+    if(image.getAttribute('src')!==entry.cardImage)image.src=entry.cardImage;
+   }else if(image)image.remove();
+  });
+ }
+}
+function attach(form,old,kind){
+ const root=form.querySelector('.form');if(!root)return;
+ const fallback=kind==='move'?'verde':'arancione';
+ let field=form.querySelector('[name="cardColor"]');
+ if(!field){const label=document.createElement('label');label.className='full';label.textContent='Colore della card';field=document.createElement('select');field.name='cardColor';for(const [key,value] of Object.entries(palette)){const option=document.createElement('option');option.value=key;option.textContent=value[0];field.append(option);}field.value=valid(old?.cardColor,fallback);label.append(field);root.append(label);const sample=document.createElement('div');sample.className='full card-color-sample';sample.textContent='Anteprima colore';const update=()=>{const c=palette[valid(field.value,fallback)];sample.style.background=c[1];sample.style.borderLeftColor=c[2];sample.style.color=c[3];};field.addEventListener('change',update);root.append(sample);update();}
+ let photo=safeImage(old?.cardImage)?old.cardImage:'',busy=false;
+ const editor=document.createElement('fieldset');editor.className='full card-photo-editor';
+ const legend=document.createElement('legend');legend.textContent='Foto della card';editor.append(legend);
+ const label=document.createElement('label');label.textContent='Scegli una foto dal telefono';const input=document.createElement('input');input.type='file';input.accept='image/*';label.append(input);editor.append(label);
+ const image=document.createElement('img');image.alt='Anteprima della foto';editor.append(image);
+ const remove=document.createElement('button');remove.type='button';remove.textContent='Rimuovi foto';editor.append(remove);
+ const note=document.createElement('small');note.textContent='Una foto per card. Viene ridotta per contenere il peso del calendario.';editor.append(note);root.append(editor);
+ const submit=form.querySelector('button.primary[type="submit"],button.primary:not([type])');
+ function update(){image.hidden=!photo;remove.hidden=!photo;if(photo)image.src=photo;else image.removeAttribute('src');}
+ input.onchange=async()=>{
+  const file=input.files?.[0];if(!file)return;busy=true;input.disabled=true;remove.disabled=true;if(submit)submit.disabled=true;note.textContent='Preparazione della foto…';
+  try{photo=await compress(file);update();note.textContent='Foto pronta. Premi Salva per confermare.';}
+  catch(error){note.textContent=error.message;toast(error.message);}
+  finally{busy=false;input.value='';input.disabled=false;remove.disabled=false;if(submit)submit.disabled=false;}
+ };
+ remove.onclick=()=>{photo='';update();note.textContent='La foto verrà rimossa salvando la card.';};update();
+ form.onsubmit=event=>{
+  event.preventDefault();if(!unlocked||busy)return;
+  const f=new FormData(form),key=kind==='move'?'moves':'equipmentEvents';let entry;
+  if(kind==='move'){
+   entry={...(old||{}),id:old?old.id:uid(),vehicle:String(f.get('vehicle')||''),date:String(f.get('date')||''),start:String(f.get('start')||''),end:String(f.get('end')||''),from:String(f.get('from')||'').trim(),to:String(f.get('to')||'').trim(),driver:String(f.get('driver')||''),cargo:String(f.get('cargo')||'').trim(),status:String(f.get('status')||'In attesa'),notes:String(f.get('notes')||'')};
+   if(!entry.to||!entry.date||!entry.vehicle||!entry.start||!entry.end||entry.start===entry.end)return toast('Completa destinazione, data, furgone e orari.');
+  }else{
+   entry={...(old||{}),id:old?old.id:uid(),title:String(f.get('title')||'').trim(),date:String(f.get('date')||''),time:String(f.get('time')||'').trim(),notes:String(f.get('notes')||'').trim()};
+   if(!entry.title||!entry.date)return toast('Completa titolo e data.');
+  }
+  entry.cardColor=valid(f.get('cardColor'),fallback);if(photo)entry.cardImage=photo;else delete entry.cardImage;
+  const previous=db[key]||[],next=old?previous.map(x=>x.id===entry.id?entry:x):previous.concat(entry);
+  // Le foto non devono occupare tutto lo spazio del salvataggio locale.
+  const photoChars=['moves','equipmentEvents'].reduce((sum,k)=>sum+(k===key?next:(db[k]||[])).reduce((n,x)=>n+(typeof x.cardImage==='string'?x.cardImage.length:0),0),0);
+  if(photoChars>1500000)return toast('Limite foto del calendario raggiunto. Rimuovi alcune foto prima di aggiungerne altre.');
+  db[key]=next;
+  try{save();}catch(error){db[key]=previous;console.error(error);return toast('Salvataggio locale non riuscito. La card non è stata salvata: prova senza foto.');}
+  close();render();paint();
+ };
+}
+const move=moveForm,equip=equipForm;
+moveForm=function(mid){move.apply(this,arguments);const form=document.getElementById('moveForm');if(form)attach(form,db.moves.find(x=>x.id===mid),'move');};
+equipForm=function(eid){equip.apply(this,arguments);const form=document.getElementById('equipForm');if(form)attach(form,(db.equipmentEvents||[]).find(x=>x.id===eid),'equip');};
+function detail(entry){if(!safeImage(entry?.cardImage))return;const body=document.getElementById('modalBody');if(!body)return;const image=document.createElement('img');image.className='card-photo-detail';image.src=entry.cardImage;image.alt='Foto allegata alla card';const caption=document.createElement('p');caption.textContent='Foto allegata';const box=document.createElement('div');box.append(caption,image);const actions=body.querySelector('.actions');if(actions)actions.before(box);else body.append(box);}
+const viewMoveOriginal=viewMove,viewEquipOriginal=viewEquip;
+viewMove=function(id){viewMoveOriginal.apply(this,arguments);detail(db.moves.find(x=>x.id===id));};
+viewEquip=function(id){viewEquipOriginal.apply(this,arguments);detail((db.equipmentEvents||[]).find(x=>x.id===id));};
+const content=document.getElementById('content');if(content)new MutationObserver(paint).observe(content,{childList:true,subtree:true});paint();
+})();
 </script>
 
 </body>
