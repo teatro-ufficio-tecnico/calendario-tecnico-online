@@ -680,6 +680,56 @@ viewMove=function(id){viewMoveOriginal.apply(this,arguments);detail(db.moves.fin
 viewEquip=function(id){viewEquipOriginal.apply(this,arguments);detail((db.equipmentEvents||[]).find(x=>x.id===id));};
 const content=document.getElementById('content');if(content)new MutationObserver(paint).observe(content,{childList:true,subtree:true});paint();
 })();
+</script><style>
+.equipment-event-list{display:grid;gap:12px;padding:14px}
+.equipment-event-card{width:100%;text-align:left;border:1px solid #dce4ee;border-left:5px solid;border-radius:10px;padding:14px;line-height:1.45;cursor:pointer}
+.equipment-event-card b,.equipment-event-card .equipment-event-date,.equipment-event-card .equipment-event-notes{display:block}
+.equipment-event-card .equipment-event-date{font-size:13px;margin-bottom:5px}
+.equipment-event-card .equipment-event-notes{margin-top:6px;white-space:pre-wrap;font-size:13px}
+.equipment-event-card .card-photo-thumb{max-height:140px;object-fit:contain;width:100%;margin-top:9px}
+</style>
+<script>
+/* La sezione Attrezzatura mostra gli eventi autonomi, non i turni tecnici. */
+(()=>{
+'use strict';if(window.tscEquipmentEventsMenu)return;window.tscEquipmentEventsMenu=true;
+const palette={verde:['#ddf4ef','#087b6b','#05695e'],viola:['#f0e6ff','#7050b8','#44266f'],blu:['#e3efff','#2863ad','#153c70'],arancione:['#fff0df','#ac590b','#713c0b'],rosso:['#ffe5e7','#b13348','#7b2333'],giallo:['#fff8d6','#9a7d0a','#6a5608'],grigio:['#eef0f3','#5c6773','#3b444d'],rosa:['#fce5f1','#a43472','#72234f']};
+function isEquipmentPage(){return page==='equipment'||page==='equipmentEvents';}
+function updateLabels(){
+ const button=document.getElementById('newShift');
+ if(button){const text=isEquipmentPage()?'＋ Nuovo evento attrezzatura':'＋ Nuovo turno';if(button.textContent!==text)button.textContent=text;}
+ if(isEquipmentPage()){
+  const title=document.getElementById('title');if(title&&title.textContent!=='Eventi attrezzatura')title.textContent='Eventi attrezzatura';
+  const controls=document.getElementById('calendarControls');if(controls)controls.classList.remove('hidden');
+ }
+ document.querySelectorAll('[data-page="equipment"]').forEach(button=>{if(button.textContent!=='Attrezzatura')button.textContent='Attrezzatura';});
+}
+function showEquipmentEvents(){
+ const start=fmt(monday(date)),end=fmt(plus(monday(date),6)),query=(document.getElementById('search')?.value||'').trim().toLowerCase();
+ const events=(db.equipmentEvents||[]).filter(entry=>entry.date>=start&&entry.date<=end&&(!query||[entry.title,entry.notes,entry.date,entry.time].join(' ').toLowerCase().includes(query))).slice().sort((a,b)=>(a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')));
+ const cards=events.map(entry=>{
+  const color=Object.prototype.hasOwnProperty.call(palette,entry.cardColor)?palette[entry.cardColor]:palette.arancione;
+  const parsed=new Date(entry.date+'T12:00:00'),day=Number.isFinite(parsed.getTime())?parsed.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):entry.date;
+  const photo=typeof entry.cardImage==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(entry.cardImage)?'<img class="card-photo-thumb" alt="Foto attrezzatura" loading="lazy" src="'+esc(entry.cardImage)+'">':'';
+  return '<button type="button" class="card equip equipment-event-card" data-view-equip="'+esc(entry.id)+'" style="background:'+color[0]+';border-left-color:'+color[1]+';color:'+color[2]+'"><span class="equipment-event-date">'+esc(day)+(entry.time?' · '+esc(entry.time):'')+'</span><b>'+esc(entry.title||'Evento attrezzatura')+'</b>'+(entry.notes?'<span class="equipment-event-notes">'+esc(entry.notes)+'</span>':'')+photo+'</button>';
+ }).join('');
+ document.getElementById('content').innerHTML='<div class="equipment-event-list">'+(cards||'<div class="empty">Nessun evento attrezzatura nel periodo selezionato.</div>')+'</div>';
+ updateLabels();
+}
+equipment=showEquipmentEvents;
+equipmentEventsPage=showEquipmentEvents;
+const previousRender=render;
+render=function(){const result=previousRender.apply(this,arguments);if(page==='equipmentEvents')showEquipmentEvents();updateLabels();return result;};
+document.addEventListener('click',event=>{
+ if(!(event.target instanceof Element))return;
+ const button=event.target.closest('button');if(!button)return;
+ if((button.id==='newShift'&&isEquipmentPage())||button.id==='menuEventiAttrezzatura'){
+  event.preventDefault();event.stopImmediatePropagation();
+  if(button.id==='menuEventiAttrezzatura'){page='equipment';render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;}
+  else equipForm(null,fmt(date));
+ }
+},true);
+if(isEquipmentPage())render();else updateLabels();
+})();
 </script>
 
 </body>
