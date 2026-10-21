@@ -978,6 +978,79 @@ const main=document.querySelector('main');if(main)new MutationObserver(apply).ob
 const dialog=document.getElementById('modalBody');if(dialog)new MutationObserver(apply).observe(dialog,{childList:true,subtree:true});
 window.addEventListener('load',apply);apply();
 })();
+</script><style>
+img.card-photo-detail,img.card-photo-thumb{cursor:zoom-in}
+#tscPhotoViewer{position:fixed;inset:0;z-index:10000;background:rgba(10,15,24,.97);display:flex;flex-direction:column;color:#fff}
+#tscPhotoViewer[hidden]{display:none!important}
+#tscPhotoViewer .photo-tools{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;flex:0 0 auto;padding:calc(10px + env(safe-area-inset-top,0px)) 10px 10px;background:#1e293b}
+#tscPhotoViewer .photo-tools button{min-height:44px;min-width:44px;border:1px solid #64748b;background:#334155;color:#fff;border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+#tscPhotoViewer .photo-area{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;touch-action:none;padding:12px}
+#tscPhotoViewer .photo-stage{width:max-content;min-width:100%;min-height:100%;display:grid;place-items:center}
+#tscPhotoViewer .photo-full{display:block;max-width:none!important;max-height:none!important;object-fit:contain;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;touch-action:none}
+#tscPhotoViewer .photo-help{flex:0 0 auto;text-align:center;color:#cbd5e1;font-size:12px;padding:7px 10px calc(7px + env(safe-area-inset-bottom,0px));margin:0}
+</style>
+<script>
+/* Visualizzatore foto separato: non modifica immagini, card o salvataggi. */
+(()=>{
+ 'use strict';if(window.tscPhotoZoom)return;window.tscPhotoZoom=true;
+ const viewer=document.createElement('div');viewer.id='tscPhotoViewer';viewer.hidden=true;viewer.setAttribute('role','dialog');viewer.setAttribute('aria-modal','true');viewer.setAttribute('aria-label','Foto ingrandita');
+ viewer.innerHTML='<div class="photo-tools"><button type="button" data-photo="out" aria-label="Riduci immagine">−</button><button type="button" data-photo="in" aria-label="Ingrandisci immagine">+</button><button type="button" data-photo="fit">Adatta</button><button type="button" data-photo="close">Chiudi foto</button></div><div class="photo-area"><div class="photo-stage"><img class="photo-full" alt="Foto allegata ingrandita" draggable="false"></div></div><p class="photo-help">Usa + e − oppure due dita per ingrandire. Trascina per spostarti.</p>';
+ document.body.append(viewer);
+ const area=viewer.querySelector('.photo-area'),image=viewer.querySelector('img'),closeButton=viewer.querySelector('[data-photo="close"]');
+ let zoom=1,baseWidth=300,previousFocus=null,oldOverflow='',points=new Map(),pinchStart=null;
+ function fit(){
+  const w=image.naturalWidth||300,h=image.naturalHeight||300;
+  const availableWidth=Math.max(100,area.clientWidth-24),availableHeight=Math.max(100,area.clientHeight-24);
+  const ratio=Math.min(availableWidth/w,availableHeight/h);baseWidth=Math.max(1,Math.round(w*ratio));zoom=1;update();area.scrollLeft=0;area.scrollTop=0;
+ }
+ function update(){image.style.width=Math.round(baseWidth*zoom)+'px';image.style.height='auto';}
+ function setZoom(value){zoom=Math.max(1,Math.min(8,value));update();}
+ function closeViewer(){if(viewer.hidden)return;viewer.hidden=true;document.body.style.overflow=oldOverflow;points.clear();pinchStart=null;image.removeAttribute('src');if(previousFocus?.isConnected)previousFocus.focus({preventScroll:true});}
+ function openViewer(source){
+  previousFocus=document.activeElement;oldOverflow=document.body.style.overflow;document.body.style.overflow='hidden';viewer.hidden=false;zoom=1;points.clear();pinchStart=null;
+  image.onload=fit;image.onerror=()=>{closeViewer();alert('Impossibile aprire questa foto.');};image.src=source.currentSrc||source.src;closeButton.focus({preventScroll:true});
+  if(image.complete&&image.naturalWidth)fit();
+ }
+ document.addEventListener('click',event=>{
+  if(!(event.target instanceof Element))return;
+  const source=event.target.closest('img.card-photo-detail,img.card-photo-thumb');if(!source||!source.getAttribute('src'))return;
+  event.preventDefault();event.stopImmediatePropagation();openViewer(source);
+ },true);
+ viewer.addEventListener('click',event=>{
+  const action=event.target.closest('[data-photo]')?.dataset.photo;
+  if(action==='close')closeViewer();if(action==='fit')fit();if(action==='in')setZoom(zoom*1.4);if(action==='out')setZoom(zoom/1.4);
+ });
+ area.addEventListener('dblclick',()=>{if(zoom>1)fit();else setZoom(2);});
+ area.addEventListener('pointerdown',event=>{
+  if(event.pointerType==='mouse'&&event.button!==0)return;
+  area.setPointerCapture(event.pointerId);points.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  if(points.size===2){const [a,b]=[...points.values()];pinchStart={distance:Math.hypot(a.x-b.x,a.y-b.y),zoom};}
+ });
+ area.addEventListener('pointermove',event=>{
+  const old=points.get(event.pointerId);if(!old)return;
+  points.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  if(points.size===2&&pinchStart){const [a,b]=[...points.values()];if(pinchStart.distance>0)setZoom(pinchStart.zoom*Math.hypot(a.x-b.x,a.y-b.y)/pinchStart.distance);}
+  else if(points.size===1){area.scrollLeft-=event.clientX-old.x;area.scrollTop-=event.clientY-old.y;}
+ });
+ function release(event){points.delete(event.pointerId);pinchStart=null;}
+ area.addEventListener('pointerup',release);area.addEventListener('pointercancel',release);
+ window.addEventListener('keydown',event=>{
+  if(viewer.hidden)return;
+  event.stopImmediatePropagation();
+  if(event.key==='Escape'){event.preventDefault();closeViewer();}
+  else if(event.key==='+'||event.key==='='){event.preventDefault();setZoom(zoom*1.4);}
+  else if(event.key==='-'){event.preventDefault();setZoom(zoom/1.4);}
+  else if(event.key==='Tab'){
+   const buttons=[...viewer.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);
+   if(event.shiftKey&&(index<=0)){event.preventDefault();buttons[buttons.length-1].focus();}
+   else if(!event.shiftKey&&(index===buttons.length-1||index<0)){event.preventDefault();buttons[0].focus();}
+  }
+  else if(['ArrowDown','ArrowUp','ArrowLeft','ArrowRight'].includes(event.key)){
+   event.preventDefault();area.scrollBy({left:event.key==='ArrowLeft'?-60:event.key==='ArrowRight'?60:0,top:event.key==='ArrowUp'?-60:event.key==='ArrowDown'?60:0});
+  }else if(event.ctrlKey||event.metaKey)event.preventDefault();
+ },true);
+ window.addEventListener('resize',()=>{if(!viewer.hidden)fit();});
+})();
 </script>
 </body>
 </html>
