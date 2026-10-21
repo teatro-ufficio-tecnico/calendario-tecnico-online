@@ -838,42 +838,27 @@ if(active())render();
 @media(min-width:801px){#content .tsc-no-show{display:none}}
 </style>
 <script>
-/* Sposta la riga spettacoli sotto i giorni, soltanto su mobile. */
+/* Versione unica: spettacoli prima dei tecnici, su mobile e computer.
+   Sostituisce tutto il precedente blocco spettacoli-sotto-giorni-mobile. */
 (()=>{
- 'use strict';if(window.tscMobileShowsFirst)return;window.tscMobileShowsFirst=true;
+ 'use strict';if(window.tscShowsFirstAllScreens)return;window.tscShowsFirstAllScreens=true;
  const root=document.getElementById('content');if(!root)return;
- const media=matchMedia('(max-width:800px)');let saved=null;
  function arrange(){
-  const grid=root.querySelector('.grid');if(!grid){saved=null;return;}
-  if(saved&&!grid.contains(saved.row))saved=null;
-  if(!media.matches){
-   if(saved){
-    if(saved.headingMarker.parentNode)saved.headingMarker.replaceWith(saved.heading);
-    if(saved.rowMarker.parentNode)saved.rowMarker.replaceWith(saved.row);
-    saved.heading.classList.remove('tsc-shows-first');saved.row.classList.remove('tsc-shows-first');saved=null;
-   }
-   return;
-  }
-  const row=grid.querySelector('.cell[data-cell-type="show"]')?.closest('.weekrow');if(!row)return;
-  const heading=grid.querySelector('.section.show');if(!heading)return;
-  if(!saved){
-   const headingMarker=document.createComment('posizione originale intestazione spettacoli');
-   const rowMarker=document.createComment('posizione originale riga spettacoli');
-   heading.before(headingMarker);row.before(rowMarker);saved={heading,row,headingMarker,rowMarker};
-  }
+  const grid=root.querySelector('.grid');if(!grid)return;
+  const row=grid.querySelector('.cell[data-cell-type="show"]')?.closest('.weekrow');
+  const heading=grid.querySelector('.section.show');if(!row||!heading)return;
   const firstRow=[...grid.children].find(el=>el.classList.contains('weekrow')&&el!==row);
   if(!firstRow)return;
-  if(heading.nextElementSibling!==row||row.nextElementSibling!==firstRow){grid.insertBefore(heading,firstRow);grid.insertBefore(row,firstRow);}
-  heading.classList.add('tsc-shows-first');row.classList.add('tsc-shows-first');
-  row.querySelectorAll('.cell').forEach(cell=>{
-   const empty=cell.querySelector('.tsc-no-show'),hasCard=!!cell.querySelector('[data-view-show],[data-open-show]');
-   if(!hasCard&&!empty){const note=document.createElement('span');note.className='tsc-no-show';note.textContent='Nessuno spettacolo in questo giorno';cell.append(note);}
-   else if(hasCard&&empty)empty.remove();
-  });
+  if(heading.nextElementSibling!==row||row.nextElementSibling!==firstRow){
+   grid.insertBefore(heading,firstRow);grid.insertBefore(row,firstRow);
+  }
+  // Rimuove solo la dicitura richiesta, preservando il resto dell'intestazione.
+  const title=heading.textContent.replace(/\s*\(non turni tecnici\)/gi,'');
+  if(heading.textContent!==title)heading.textContent=title;
  }
  new MutationObserver(arrange).observe(root,{childList:true,subtree:true});
- media.addEventListener('change',arrange);window.addEventListener('load',arrange);arrange();
+ window.addEventListener('load',arrange);arrange();
 })();
-</script>  
+</script>
 </body>
 </html>
