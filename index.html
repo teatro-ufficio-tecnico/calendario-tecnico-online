@@ -801,6 +801,32 @@ if(active())render();
  window.addEventListener('online',flush);
  window.addEventListener('beforeunload',event=>{if(pending||running){event.preventDefault();event.returnValue='';}});
 })();
+</script><style>
+#calendarReloadButton{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:9px 12px;border:1px solid #b9c2ce;border-radius:8px;background:#e4e7ec;color:#243249;cursor:pointer;font:inherit}
+@media(max-width:800px){#calendarReloadButton{font-size:14px!important;padding:8px 10px!important}}
+</style>
+<script>
+/* Pulsante esplicito di ricarica: non modifica né invia i dati. */
+(()=>{
+ if(window.tscCalendarReloadButton)return;window.tscCalendarReloadButton=true;
+ function mount(){
+  if(document.getElementById('calendarReloadButton'))return;
+  const bar=document.querySelector('#calendarControls .bar');if(!bar)return;
+  const button=document.createElement('button');button.type='button';button.id='calendarReloadButton';button.textContent='↻ Aggiorna';button.title='Ricarica la pagina per leggere i dati online aggiornati';
+  button.onclick=()=>{
+   if(document.querySelector('#modal.show form')){alert('Chiudi o salva il modulo aperto prima di aggiornare.');return;}
+   if(typeof savingRemote!=='undefined'&&savingRemote){alert('Salvataggio online in corso. Attendi che sia terminato prima di aggiornare.');return;}
+   const status=document.getElementById('syncStatus')?.textContent||'';
+   if(/non salvato|solo locale|modifica locale|salvataggio online in corso|connessione.*(?:non riuscita|non disponibile)/i.test(status)){
+    alert('Ci sono problemi di salvataggio o connessione. Non ricaricare prima di aver salvato online o esportato un backup.');return;
+   }
+   if(!confirm('Ricaricare il calendario? Le modifiche non salvate potrebbero andare perse.'))return;
+   window.location.reload();
+  };
+  const today=document.getElementById('today');if(today&&today.parentNode===bar)today.after(button);else bar.append(button);
+ }
+ window.addEventListener('load',mount);mount();
+})();
 </script>  
 </body>
 </html>
