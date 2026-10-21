@@ -837,22 +837,33 @@ if(active())render();
 }
 @media(min-width:801px){#content .tsc-no-show{display:none}}
 </style>
+<style>
+#content .section.show.tsc-shows-above-days{margin-top:0;background:#e4e0f4;color:#3f326f;border-bottom:1px solid #d3cbe7}
+@media(max-width:800px){
+ #content .weekrow.tsc-shows-above-days{background:#f7f5fc;border-bottom:8px solid var(--bg,#f4f6fa)}
+ #content .weekrow.tsc-shows-above-days>.label,#content .weekrow.tsc-shows-above-days>.cell{background:transparent}
+ #content .grid>.mobile-days{margin:0;border-bottom:1px solid #dce4ee}
+}
+</style>
 <script>
-/* Versione unica: spettacoli prima dei tecnici, su mobile e computer.
-   Sostituisce tutto il precedente blocco spettacoli-sotto-giorni-mobile. */
+/* Posizione spettacoli: prima dell'intestazione dei giorni, dopo i filtri. */
 (()=>{
- 'use strict';if(window.tscShowsFirstAllScreens)return;window.tscShowsFirstAllScreens=true;
+ 'use strict';if(window.tscShowsAboveDays)return;window.tscShowsAboveDays=true;
  const root=document.getElementById('content');if(!root)return;
  function arrange(){
   const grid=root.querySelector('.grid');if(!grid)return;
+  const weekhead=grid.querySelector('.weekhead');
+  const heading=grid.querySelector('.section.show');
   const row=grid.querySelector('.cell[data-cell-type="show"]')?.closest('.weekrow');
-  const heading=grid.querySelector('.section.show');if(!row||!heading)return;
-  const firstRow=[...grid.children].find(el=>el.classList.contains('weekrow')&&el!==row);
-  if(!firstRow)return;
-  if(heading.nextElementSibling!==row||row.nextElementSibling!==firstRow){
-   grid.insertBefore(heading,firstRow);grid.insertBefore(row,firstRow);
+  if(!weekhead||!heading||!row)return;
+  const mobileDays=root.querySelector('.mobile-days');
+  // Sposta gli elementi esistenti, conservandone eventi, ID e card.
+  const desired=[heading,row,...(mobileDays?[mobileDays]:[])];
+  let anchor=weekhead;
+  for(let i=desired.length-1;i>=0;i--){
+   const el=desired[i];if(el.parentNode!==grid||el.nextElementSibling!==anchor)grid.insertBefore(el,anchor);anchor=el;
   }
-  // Rimuove solo la dicitura richiesta, preservando il resto dell'intestazione.
+  heading.classList.add('tsc-shows-above-days');row.classList.add('tsc-shows-above-days');
   const title=heading.textContent.replace(/\s*\(non turni tecnici\)/gi,'');
   if(heading.textContent!==title)heading.textContent=title;
  }
