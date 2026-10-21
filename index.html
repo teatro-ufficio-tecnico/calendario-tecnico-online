@@ -903,6 +903,81 @@ if(active())render();
  new MutationObserver(arrange).observe(root,{childList:true,subtree:true});
  window.addEventListener('load',arrange);arrange();
 })();
+</script><style>
+#content .tsc-inactive-technician{display:none!important}
+#visibleTechniciansButton,#tscVisibilityV2Button{display:none!important}
+.tsc-inactive-assignment{display:none!important}
+#content .tsc-inactive-person{opacity:.75;border-style:dashed}
+.tsc-person-status{display:inline-block;padding:3px 7px;border-radius:6px;background:#eef0f3;color:#526078;font-size:12px;margin-top:5px}
+</style>
+<script>
+/* Tecnici non attivi: stato condiviso, storico e assegnazioni conservati. */
+(()=>{
+'use strict';if(window.tscInactiveTechnicians)return;window.tscInactiveTechnicians=true;
+let showInactive=false;
+const inactive=id=>(db.tech||[]).some(t=>String(t.id)===String(id)&&t.inactive===true);
+function apply(){
+ const root=document.getElementById('content');if(!root)return;
+ root.querySelectorAll('.weekrow').forEach(row=>{
+  const cell=row.querySelector('.cell[data-cell-type="tech"][data-cell-id]');if(!cell)return;
+  row.classList.remove('tsc-technician-hidden','tsc-tech-hidden-v2');
+  row.classList.toggle('tsc-inactive-technician',inactive(cell.dataset.cellId));
+ });
+ if(page==='tech'){
+  const tool=root.querySelector('.tool');let toggle=document.getElementById('tscShowInactivePeople');
+  if(tool&&!toggle){toggle=document.createElement('button');toggle.type='button';toggle.id='tscShowInactivePeople';toggle.onclick=()=>{showInactive=!showInactive;apply();};tool.append(toggle);}
+  if(toggle){const n=db.tech.filter(t=>t.inactive===true).length,text=(showInactive?'Nascondi':'Mostra')+' tecnici non attivi ('+n+')';if(toggle.textContent!==text)toggle.textContent=text;}
+  root.querySelectorAll('[data-open-tech]').forEach(edit=>{
+   const person=db.tech.find(t=>String(t.id)===String(edit.dataset.openTech)),item=edit.closest('.item');if(!person||!item)return;
+   const off=person.inactive===true;item.classList.toggle('tsc-inactive-technician',off&&!showInactive);item.classList.toggle('tsc-inactive-person',off);
+   let status=item.querySelector('.tsc-person-status');
+   if(off&&!status){status=document.createElement('span');status.className='tsc-person-status';status.textContent='Non attivo · storico conservato';(item.querySelector('.info')||item).append(status);}else if(!off&&status)status.remove();
+   let action=item.querySelector('[data-tsc-active-toggle]');
+   if(!action){action=document.createElement('button');action.type='button';action.dataset.tscActiveToggle=person.id;item.append(action);}
+   const text=off?'Riattiva':'Disattiva';if(action.textContent!==text)action.textContent=text;
+   action.hidden=!unlocked;
+  });
+ }
+ // Non rimuovere dai moduli le assegnazioni storiche già selezionate.
+ document.querySelectorAll('#shiftForm input[name="tech"]').forEach(input=>{
+  const hide=inactive(input.value)&&!input.checked;input.closest('label')?.classList.toggle('tsc-inactive-assignment',hide);
+  if(hide){input.disabled=true;input.dataset.tscDisabledInactive='1';}
+  else if(input.dataset.tscDisabledInactive){input.disabled=false;delete input.dataset.tscDisabledInactive;}
+ });
+ document.querySelectorAll('#moveForm select[name="driver"] option').forEach(option=>{
+  const hide=!!option.value&&inactive(option.value)&&!option.selected;option.hidden=hide;
+  if(hide){option.disabled=true;option.dataset.tscDisabledInactive='1';}
+  else if(option.dataset.tscDisabledInactive){option.disabled=false;delete option.dataset.tscDisabledInactive;}
+ });
+}
+document.addEventListener('click',event=>{
+ if(!(event.target instanceof Element))return;const button=event.target.closest('[data-tsc-active-toggle]');if(!button)return;
+ event.preventDefault();event.stopImmediatePropagation();if(!can())return;
+ const person=db.tech.find(t=>String(t.id)===String(button.dataset.tscActiveToggle));if(!person)return;
+ const next=person.inactive!==true;
+ if(!confirm((next?'Disattivare ':'Riattivare ')+person.name+'?'+(next?' Verrà nascosto dalle viste operative e dalle nuove assegnazioni. I turni esistenti non saranno eliminati.':'')))return;
+ const previous=db.tech;db.tech=db.tech.map(t=>t.id===person.id?{...t,inactive:next}:t);
+ try{save();}catch(error){db.tech=previous;console.error(error);toast('Salvataggio non riuscito. Stato non modificato.');return;}
+ render();apply();
+},true);
+const originalTechForm=techForm;
+techForm=function(id){
+ originalTechForm.apply(this,arguments);const form=document.getElementById('techForm');if(!form)return;
+ const person=db.tech.find(t=>t.id===id);
+ const label=document.createElement('label');label.className='full';label.style.cssText='display:flex;flex-direction:row;align-items:center;gap:8px';
+ const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.name='tscPersonActive';checkbox.checked=person?.inactive!==true;checkbox.style.width='20px';label.append(checkbox,document.createTextNode('Tecnico attivo (disattiva per nasconderlo dalle viste operative)'));form.querySelector('.form').append(label);
+ form.onsubmit=event=>{
+  event.preventDefault();if(!unlocked)return;const f=new FormData(form),name=String(f.get('name')||'').trim();if(!name)return toast('Inserisci il nome.');
+  const roles=f.getAll('roles').map(String),entry={...(person||{}),id:person?person.id:uid(),name,roles:roles.length?roles:['Tecnico'],contact:String(f.get('contact')||'').trim(),inactive:!checkbox.checked};
+  const previous=db.tech;db.tech=person?db.tech.map(t=>t.id===entry.id?entry:t):db.tech.concat(entry);
+  try{save();}catch(error){db.tech=previous;console.error(error);toast('Salvataggio non riuscito. Modifica non applicata.');return;}
+  close();render();apply();
+ };
+};
+const main=document.querySelector('main');if(main)new MutationObserver(apply).observe(main,{childList:true,subtree:true});
+const dialog=document.getElementById('modalBody');if(dialog)new MutationObserver(apply).observe(dialog,{childList:true,subtree:true});
+window.addEventListener('load',apply);apply();
+})();
 </script>
 </body>
 </html>
