@@ -33,7 +33,7 @@ function calendar(ss,mm){let days=Array.from({length:7},(_,i)=>plus(monday(date)
 function van(mm,ss){let required=ss.filter(s=>s.van),h='<div class="tool"><button id="newMove" class="primary">＋ Nuovo movimento</button><button id="newVan">＋ Nuovo furgone</button></div><h3 class="sub">DOVE POTREBBE SERVIRE</h3><div class="list">'+(required.length?required.map(s=>{let covered=db.moves.some(m=>m.date===s.date&&norm(m.to)===norm(s.space));return'<div class="item"><div class="info"><b>'+esc(s.space)+' — '+esc(s.title)+'</b><small>'+esc(s.date)+' · '+esc(slotText(s))+'</small></div><span class="tag '+(covered?'ok':'')+'">'+(covered?'Movimento previsto':'Manca movimento')+'</span><button data-open-shift="'+s.id+'">Apri</button>'+(covered?'':'<button data-create-move="'+s.date+'|'+esc(s.space)+'">＋ Movimento</button>')+'</div>'}).join(''):'<div class="empty">Nessun turno richiede il furgone.</div>')+'</div><h3 class="sub">MOVIMENTI PIANIFICATI</h3><div class="list">'+(mm.length?mm.map(m=>'<div class="item"><div class="info"><b>🚐 '+esc(m.from||'?')+' → '+esc(m.to)+'</b><small>'+esc(m.date)+' · '+esc(m.start+'–'+m.end)+' · '+esc(vname(m.vehicle))+'</small></div><button data-open-move="'+m.id+'">Modifica</button></div>').join(''):'<div class="empty">Nessun movimento nel periodo.</div>')+'</div><h3 class="sub">FURGONI</h3><div class="list">'+db.vehicles.map(v=>'<div class="item"><span class="number">🚐</span><div class="info"><b>'+esc(v.name)+'</b><small>'+esc(v.notes||'Nessuna nota')+'</small></div><button data-open-van="'+v.id+'">Modifica</button></div>').join('')+'</div>';$('#content').innerHTML=h}
 function equipment(ss){let by={};ss.filter(s=>s.equipment.trim()||s.van).forEach(s=>(by[s.space]??=[]).push(s));$('#content').innerHTML='<div class="tool"><button id="manageSpaces">⚙ Gestisci elenco spazi</button><span class="small">Attrezzatura = campo del turno, non turno autonomo.</span></div>'+(Object.keys(by).length?Object.entries(by).map(([p,a])=>'<div class="place"><h3>📍 '+esc(p)+'</h3><table><thead><tr><th>Data</th><th>Orario</th><th>Produzione</th><th>Attrezzatura necessaria</th><th>Furgone</th></tr></thead><tbody>'+a.map(s=>'<tr><td>'+esc(s.date)+'</td><td>'+esc(slotText(s))+'</td><td>'+esc(s.title)+'</td><td class="eq">'+esc(s.equipment||'—')+'</td><td>'+(s.van?'🚐 serve':'—')+'</td></tr>').join('')+'</tbody></table></div>').join(''):'<div class="empty">Nessuna attrezzatura indicata nel periodo.</div>')}
 function equipmentEventsPage(){const h='<div class="tool"><button id="newEquip" class="primary">＋ Nuovo evento attrezzatura</button><span class="small">Eventi separati: compaiono nel calendario prima del furgone.</span></div><div class="list">'+((db.equipmentEvents||[]).length?db.equipmentEvents.slice().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(e=>'<div class="item"><div class="info"><b>🧰 '+esc(e.title||'Senza titolo')+'</b><small>'+esc(e.date)+(e.time?' · '+esc(e.time):'')+(e.notes?' · '+esc(e.notes):'')+'</small></div><button data-open-equip="'+e.id+'">Modifica</button></div>').join(''):'<div class="empty">Nessun evento attrezzatura inserito.</div>')+'</div>';$('#content').innerHTML=h}
-function viewEquip(eid){let e=(db.equipmentEvents||[]).find(x=>x.id===eid);if(!e)return;modal('🧰 '+esc(e.title||'Attrezzatura'),'<div class="note"><p><b>Data:</b> '+esc(e.date)+'</p><p><b>Orario:</b> '+esc(e.time||'—')+'</p><p><b>Note:</b><br>'+esc(e.notes||'—').replace(/\n/g,'<br>')+'</p></div><div class="actions"><button class="close">Chiudi</button>'+(can()?'<button class="primary" data-open-equip="'+e.id+'">Modifica</button>':'')+'</div>')}
+function viewEquip(eid){let e=(db.equipmentEvents||[]).find(x=>x.id===eid);if(!e)return;modal('🧰 '+esc(e.title||'Attrezzatura'),'<div class="note"><p><b>Data:</b> '+esc(e.date)+'</p><p><b>Orario:</b> '+esc(e.time||'—')+'</p><p><b>Note:</b><br>'+esc(e.notes||'—').replace(/\n/g,'<br>')+'</p></div><div class="actions"><button class="close">Chiudi</button>'+(unlocked?'<button class="primary" data-open-equip="'+e.id+'">Modifica</button>':'')+'</div>')}
 function equipForm(eid,defDate){if(!can())return;let old=(db.equipmentEvents||[]).find(x=>x.id===eid),e=old||{id:uid(),title:'',date:defDate||fmt(date),time:'',notes:''};modal(old?'Modifica evento attrezzatura':'Nuovo evento attrezzatura','<form id="equipForm"><div class="form"><label class="full">Titolo<input name="title" required value="'+esc(e.title)+'" placeholder="es. Preparazione luci"></label><label>Data<input type="date" name="date" required value="'+e.date+'"></label><label>Orario<input name="time" value="'+esc(e.time)+'" placeholder="es. 15:00"></label><label class="full">Note<textarea name="notes" rows="4">'+esc(e.notes)+'</textarea></label></div><div class="actions">'+(old?'<button id="deleteEquip" type="button" class="danger">Elimina</button>':'')+'<button type="button" class="close">Annulla</button><button class="primary">Salva</button></div></form>');$('#equipForm').onsubmit=x=>{x.preventDefault();let f=new FormData(x.target),p={...e,title:f.get('title').trim(),date:f.get('date'),time:f.get('time').trim(),notes:f.get('notes').trim()};if(old)db.equipmentEvents=db.equipmentEvents.map(x=>x.id===p.id?p:x);else db.equipmentEvents.push(p);save();close();render()};if(old)$('#deleteEquip').onclick=()=>{if(confirm('Eliminare questo evento attrezzatura?')){db.equipmentEvents=db.equipmentEvents.filter(x=>x.id!==e.id);save();close();render()}}}
 function showsPage(){const h='<div class="tool"><button id="newShow" class="primary">＋ Nuovo spettacolo</button><button id="manageSpaces">⚙ Gestisci spazi</button></div><div class="list">'+(db.shows.length?db.shows.map(sh=>'<div class="item"><div class="info"><b>'+esc(sh.title||'Senza titolo')+'</b><small>'+(sh.spaces||[]).join(' · ')+(sh.time?' · '+esc(sh.time):'')+(sh.driveLink?' · <a href="'+esc(sh.driveLink)+'" target="_blank" style.stats{display:none!important}="color:#5046e5">Drive</a>':'')+(sh.notes?' · '+esc(sh.notes):'')+'</small></div><button data-open-show="'+sh.id+'">Modifica</button></div>').join(''):'<div class="empty">Nessuno spettacolo registrato.</div>')+'</div>';$('#content').innerHTML=h}function settings(){$('#content').innerHTML='<div class="settings"><h3>PIN Ufficio Tecnico</h3><div class="notice">Il PIN iniziale è <b>1234</b>. Cambialo dopo il primo accesso. In un file HTML il PIN blocca l’interfaccia ma non è una protezione server né sincronizza modifiche fra persone.</div><p><button id="changePin" class="primary">Cambia PIN</button></p><h3>Elenchi</h3><button id="manageSpaces">Gestisci spazi</button> <button id="manageRoles">Gestisci mansioni</button><h3>Backup</h3><button id="backup">Esporta backup JSON</button> <button id="restore">Importa backup JSON</button> <button id="reset" class="danger">Ripristina dati iniziali</button></div>'}
 function formSlots(a){return a.map(x=>'<div class="slot"><input class="slotStart" type="time" value="'+x.start+'"><span>→</span><input class="slotEnd" type="time" value="'+x.end+'"><button type="button" class="removeSlot">✕</button></div>').join('')}function check(name,list,active){return list.map(x=>{let value=x.id||x,label=x.name||x;return'<label><input type="checkbox" name="'+name+'" value="'+esc(value)+'" '+(active.includes(value)?'checked':'')+'>'+esc(label)+'</label>'}).join('')}
@@ -113,24 +113,7 @@ document.addEventListener('keydown',e=>{if(e.isComposing||!(e.ctrlKey||e.metaKey
 (()=>{const original=shiftForm;shiftForm=function(sid,dateArg,techArg){original(sid,dateArg,techArg);const f=$('#shiftForm');if(!f)return;const old=db.shifts.find(x=>x.id===sid),root=f.querySelector('.form'),field=document.createElement('label');field.className='full';field.innerHTML='Tipo di giornata<select name="dayType"><option value="lavoro">Turno di lavoro</option><option value="riposo">Riposo</option><option value="ferie">Ferie</option></select>';root.prepend(field);const type=field.querySelector('select');type.value=old&&['riposo','ferie'].includes(old.dayType)?old.dayType:'lavoro';const label=document.createElement('label');label.className='full show-check';label.innerHTML='<input type="checkbox" name="withoutTime">Senza orario';field.after(label);const off=label.querySelector('input');off.checked=!!old&&(old.withoutTime||!(old.slots||[]).length);const slots=f.querySelector('#slots');if(slots&&!slots.querySelector('.slot'))slots.innerHTML=formSlots([{start:'09:00',end:'13:00'}]);const controls=[...f.querySelectorAll('[name="title"],[name="space"],[name="need"],[name="status"],[name="equipment"],[name="van"],#inlineSpace,#addSpace,#inlineRole,#addRole')].map(x=>({x,disabled:x.disabled,required:x.required,container:x.closest('label')||x.closest('.inline')})),roleField=f.querySelector('#roleChecks')?.closest('fieldset'),slotField=slots?.closest('fieldset');
 function update(){const absent=type.value!=='lavoro',without=absent||off.checked;label.hidden=absent;off.disabled=absent;controls.forEach(({x,disabled,required,container})=>{x.disabled=absent||disabled;x.required=!absent&&required;if(container)container.hidden=absent;});if(roleField){roleField.hidden=absent;roleField.querySelectorAll('input').forEach(x=>x.disabled=absent);}if(slotField){slotField.hidden=without;slotField.querySelectorAll('input,button').forEach(x=>x.disabled=without);}}type.onchange=update;off.onchange=update;update();const submit=f.onsubmit;
 f.onsubmit=function(e){const absent=type.value!=='lavoro';if(!absent&&!off.checked){if(old){old.dayType='lavoro';old.withoutTime=false;}return submit.call(this,e);}e.preventDefault();if(!unlocked)return;const data=new FormData(f),tech=data.getAll('tech').map(String),day=String(data.get('date')||''),title=absent?(type.value==='ferie'?'Ferie':'Riposo'):String(data.get('title')||'').trim(),space=absent?'':String(data.get('space')||'');if(!day)return toast('Seleziona la data.');if(absent&&!tech.length)return toast('Seleziona almeno un tecnico.');if(!absent&&(!title||!space))return toast('Completa attività e spazio.');const roles=data.getAll('roles').map(String),entry={...(old||{}),id:old?old.id:uid(),dayType:type.value,withoutTime:true,title,date:day,space,slots:[],roles:absent?[]:(roles.length?roles:['Tecnico']),need:absent?tech.length:(Number(data.get('need'))||1),tech,equipment:absent?'':String(data.get('equipment')||'').trim(),van:!absent&&data.get('van')==='on',status:absent?'Confermato':String(data.get('status')||'In attesa'),notes:String(data.get('notes')||'')};if(old)db.shifts=db.shifts.map(x=>x.id===entry.id?entry:x);else db.shifts.push(entry);save();close();render();};};})();
-$('#previous').onclick=()=>{date=plus(date,-7);render()};$('#following').onclick=()=>{date=plus(date,7);render()};$('#today').onclick=()=>{date=new Date();render()};['search','filterSpace','filterRole','filterStatus'].forEach(x=>$('#'+x).addEventListener(x==='search'?'input':'change',render));$('#modal').onclick=e=>{if(e.target===$('#modal'))close()};pullRemote().then(() => {
-  const eventId = new URLSearchParams(location.search).get("evento");
-  if (!eventId || !remoteReady) return;
-
-  const turno = db.shifts.find(x => String(x.id) === eventId);
-  if (turno) {
-    viewShift(turno.id);
-    return;
-  }
-
-  const movimento = db.moves.find(x => String(x.id) === eventId);
-  if (movimento) {
-    viewMove(movimento.id);
-    return;
-  }
-
-  toast("L’elemento indicato dalla notifica non è disponibile.");
-});
+$('#previous').onclick=()=>{date=plus(date,-7);render()};$('#following').onclick=()=>{date=plus(date,7);render()};$('#today').onclick=()=>{date=new Date();render()};['search','filterSpace','filterRole','filterStatus'].forEach(x=>$('#'+x).addEventListener(x==='search'?'input':'change',render));$('#modal').onclick=e=>{if(e.target===$('#modal'))close()};pullRemote();
 $('#fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let x=JSON.parse(await f.text());if(!x.pin||!x.tech||!x.shifts)throw Error();if(confirm('Sostituire i dati attuali con il backup?')){db=x;save();render();toast('Backup importato.')}}catch{toast('Backup non valido.')}e.target.value=''};render();
 </script>
 <script>
@@ -499,6 +482,16 @@ window.addEventListener('load',pulsanti);
  if(window.tscNotificationCardFix)return;
  window.tscNotificationCardFix=true;
  let pending=null,lastOpened='',timer=null;
+ // Consume notification links once; refreshing must not replay them.
+ const initialURL=new URL(location.href);
+ const navigation=performance.getEntriesByType('navigation')[0];
+ const isReload=navigation&&navigation.type==='reload';
+ const initialEvent=isReload?null:initialURL.searchParams.get('evento');
+ if(initialURL.searchParams.has('evento')){
+  initialURL.searchParams.delete('evento');
+  history.replaceState(history.state,'',initialURL.pathname+initialURL.search+initialURL.hash);
+ }
+
  function eventFromURL(value){try{const url=new URL(value,location.href);return url.origin===location.origin?url.searchParams.get('evento'):null;}catch{return null;}}
  function requestOpen(id,force=false){
   if(!id||(!force&&String(id)===lastOpened))return;
@@ -518,14 +511,14 @@ window.addEventListener('load',pulsanti);
   }
   toast('La card collegata alla notifica non è più disponibile: potrebbe essere stata eliminata.');
  }
- requestOpen(eventFromURL(location.href));
+ requestOpen(initialEvent);
  window.addEventListener('pageshow',()=>requestOpen(eventFromURL(location.href)));
  window.addEventListener('popstate',()=>requestOpen(eventFromURL(location.href)));
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)requestOpen(eventFromURL(location.href));});
  if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{
   const data=event.data;if(!data||typeof data!=='object')return;
   const id=data.evento||eventFromURL(data.url||data.href||'');
-  if(id)requestOpen(id,true);
+  if(id){const clean=new URL(location.href);clean.searchParams.delete('evento');history.replaceState(history.state,'',clean.pathname+clean.search+clean.hash);requestOpen(id,true);}
  });
 })();
 </script>
@@ -821,6 +814,8 @@ if(active())render();
     alert('Ci sono problemi di salvataggio o connessione. Non ricaricare prima di aver salvato online o esportato un backup.');return;
    }
    if(!confirm('Ricaricare il calendario? Le modifiche non salvate potrebbero andare perse.'))return;
+   const clean=new URL(location.href);clean.searchParams.delete('evento');
+   history.replaceState(history.state,'',clean.pathname+clean.search+clean.hash);
    window.location.reload();
   };
   const today=document.getElementById('today');if(today&&today.parentNode===bar)today.after(button);else bar.append(button);
