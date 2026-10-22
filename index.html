@@ -29,7 +29,7 @@ function aggiornaVistaGiorno(){
  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{giornoMobile=Number(b.dataset.day);aggiornaVistaGiorno();});
  root.querySelectorAll('.weekrow').forEach(row=>{row.querySelectorAll('.cell').forEach((cell,i)=>cell.classList.toggle('mobile-off',i!==giornoMobile));});
 }
-function calendar(ss,mm){let days=Array.from({length:7},(_,i)=>plus(monday(date),i)),showsThisWeek=db.shows.filter(s=>s.date>=fmt(monday(date))&&s.date<=fmt(plus(monday(date),6))),rows=[...db.tech.map(t=>({type:'tech',id:t.id,name:t.name,sub:roleText(t.roles)})),{type:'none',id:'none',name:'Da assegnare',sub:'Turni senza tecnico'}],h='<div class="scroll"><div class="grid"><div class="weekhead"><div>⚓</div>'+days.map((d,i)=>'<div><span class="coord">'+String.fromCharCode(65+i)+'</span>'+d.toLocaleDateString('it-IT',{weekday:'short'})+'<strong>'+d.getDate()+'</strong></div>').join('')+'</div>';let n=0;for(const r of rows){n++;h+='<div class="weekrow"><div class="label"><span class="number">'+n+'</span><div><b>'+esc(r.name)+'</b><small>'+esc(r.sub)+'</small></div></div>'+days.map((day,i)=>{let dayS=fmt(day),a=r.type==='van'?[]:ss.filter(s=>s.date===dayS&&(r.type==='none'?!s.tech.length:s.tech.includes(r.id)));return'<div class="cell" data-cell-date="'+dayS+'" data-cell-type="'+r.type+'" data-cell-id="'+r.id+'"><span class="ref">'+String.fromCharCode(65+i)+n+'</span>'+a.map(s=>{let c=s.status==='In attesa'?'wait':s.status==='Da coprire'||need(s)?'open':'';return'<button class="card '+c+'" data-view-shift="'+s.id+'"><b>'+s.slots.map(x=>esc(x.start+'–'+x.end)).join('<br>')+'</b>'+esc(s.title)+(s.equipment?' 🧰':'')+(s.van?' 🚐':'')+'</button>'}).join('')+'</div>'}).join('')+'</div>'}h+='<div class="section show">🎭 PROGRAMMA SPETTACOLI — calendario programmazione </div>';h+='<div class="weekrow"><div class="label"><span class="number">🎭</span><div><b>Spettacoli in programma</b><small>Programma spettacoli · non turni tecnici</small></div></div>'+days.map((day,i)=>{let dayS=fmt(day),dayShows=showsThisWeek.filter(sh=>sh.date===dayS);return'<div class="cell" data-cell-date="'+dayS+'" data-cell-type="show" data-cell-id="shows"><span class="ref">'+String.fromCharCode(65+i)+'S</span>'+dayShows.map(showCard).join('')+'</div>'}).join('')+'</div>';h+='<div class="section equip">🧰 ATTREZZATURA — eventi separati</div>';h+='<div class="weekrow"><div class="label"><span class="number">🧰</span><div><b>Attrezzatura</b><small>Promemoria ed eventi attrezzatura</small></div></div>'+days.map((day,i)=>{let dayS=fmt(day),b=(db.equipmentEvents||[]).filter(e=>e.date===dayS);return'<div class="cell" data-cell-date="'+dayS+'" data-cell-type="equip" data-cell-id="equip"><span class="ref">'+String.fromCharCode(65+i)+'E</span>'+b.map(e=>'<button class="card equip" data-view-equip="'+e.id+'"><b>'+(e.time?esc(e.time)+' · ':'')+'🧰 '+esc(e.title)+'</b></button>').join('')+'</div>'}).join('')+'</div>';h+='<div class="section">FURGONE — MOVIMENTI</div>';h+='<div class="weekrow"><div class="label"><span class="number">🚐</span><div><b>Furgone: movimenti</b><small>Movimenti logistica</small></div></div>'+days.map((day,i)=>{let dayS=fmt(day),b=mm.filter(m=>m.date===dayS);return'<div class="cell" data-cell-date="'+dayS+'" data-cell-type="van" data-cell-id="van"><span class="ref">'+String.fromCharCode(65+i)+'V</span>'+b.map(m=>'<button class="card van" data-view-move="'+m.id+'"><b>🚐 '+esc(m.start+'–'+m.end)+'</b>'+esc(m.from||'?')+' → '+esc(m.to)+'</button>').join('')+'</div>'}).join('')+'</div>';h+='</div></div><div class="tool small">🧰 = attrezzatura · 🚐 = furgone · verde = movimento · viola = spettacolo (clicca per dettagli)</div>';$('#content').innerHTML=h;aggiornaVistaGiorno()}function technicians(){$('#content').innerHTML='<div class="tool"><button id="manageRoles">⚙ Gestisci mansioni</button><button id="newTech" class="primary">＋ Nuovo tecnico</button><span class="small">Usa ↑ ↓ per cambiare l’ordine nel calendario.</span></div><div class="list">'+db.tech.map((t,i)=>'<div class="item"><span class="number">'+(i+1)+'</span><div class="info"><b>'+esc(t.name)+'</b><small>'+esc(roleText(t.roles))+'</small></div><button data-reorder="up|'+t.id+'" '+(!i?'disabled':'')+'>↑</button><button data-reorder="down|'+t.id+'" '+(i===db.tech.length-1?'disabled':'')+'>↓</button><button data-open-tech="'+t.id+'">Modifica</button></div>').join('')+'</div>'}
+function calendar(ss,mm){let days=Array.from({length:7},(_,i)=>plus(monday(date),i)),showsThisWeek=db.shows.filter(s=>s.date>=fmt(monday(date))&&s.date<=fmt(plus(monday(date),6))),rows=[...db.tech.map(t=>({type:'tech',id:t.id,name:t.name,sub:roleText(t.roles)})),{type:'none',id:'none',name:'Da assegnare',sub:'Turni senza tecnico'}],h='<div class="scroll"><div class="grid"><div class="weekhead"><div>⚓</div>'+days.map((d,i)=>'<div><span class="coord">'+String.fromCharCode(65+i)+'</span>'+d.toLocaleDateString('it-IT',{weekday:'short'})+'<strong>'+d.getDate()+'</strong></div>').join('')+'</div>';let n=0;for(const r of rows){n++;h+='<div class="weekrow"><div class="label"><span class="number">'+n+'</span><div><b>'+esc(r.name)+'</b><small>'+esc(r.sub)+'</small></div></div>'+days.map((day,i)=>{let dayS=fmt(day),a=r.type==='van'?[]:ss.filter(s=>s.date===dayS&&(r.type==='none'?!s.tech.length:s.tech.includes(r.id)));return'<div class="cell" data-cell-date="'+dayS+'" data-cell-type="'+r.type+'" data-cell-id="'+r.id+'"><span class="ref">'+String.fromCharCode(65+i)+n+'</span>'+a.map(s=>{let c=s.status==='In attesa'?'wait':s.status==='Da coprire'||need(s)?'open':'';return'<button class="card '+c+'" data-view-shift="'+s.id+'"><b>'+s.slots.map(x=>esc(x.start+'–'+x.end)).join('<br>')+'</b>'+esc(s.title)+(s.equipment?' 🧰':'')+(s.van?' 🚐':'')+'</button>'}).join('')+'</div>'}).join('')+'</div>'}h+='<div class="section show">🎭 PROGRAMMA SPETTACOLI — calendario programmazione </div>';h+='<div class="weekrow"><div class="label"><span class="number">🎭</span><div><b>Spettacoli in programma</b><small>Programma spettacoli · non turni tecnici</small></div></div>'+days.map((day,i)=>{let dayS=fmt(day),dayShows=showsThisWeek.filter(sh=>sh.date===dayS);return'<div class="cell" data-cell-date="'+dayS+'" data-cell-type="show" data-cell-id="shows"><span class="ref">'+String.fromCharCode(65+i)+'S</span>'+dayShows.map(showCard).join('')+'</div>'}).join('')+'</div>';h+='<div class="section">FURGONE — MOVIMENTI</div>';h+='<div class="weekrow"><div class="label"><span class="number">🚐</span><div><b>Furgone: movimenti</b><small>Movimenti logistica</small></div></div>'+days.map((day,i)=>{let dayS=fmt(day),b=mm.filter(m=>m.date===dayS);return'<div class="cell" data-cell-date="'+dayS+'" data-cell-type="van" data-cell-id="van"><span class="ref">'+String.fromCharCode(65+i)+'V</span>'+b.map(m=>'<button class="card van" data-view-move="'+m.id+'"><b>🚐 '+esc(m.start+'–'+m.end)+'</b>'+esc(m.from||'?')+' → '+esc(m.to)+'</button>').join('')+'</div>'}).join('')+'</div>';h+='<div class="section equip">🧰 ATTREZZATURA — eventi separati</div>';h+='<div class="weekrow"><div class="label"><span class="number">🧰</span><div><b>Attrezzatura</b><small>Promemoria ed eventi attrezzatura</small></div></div>'+days.map((day,i)=>{let dayS=fmt(day),b=(db.equipmentEvents||[]).filter(e=>e.date===dayS);return'<div class="cell" data-cell-date="'+dayS+'" data-cell-type="equip" data-cell-id="equip"><span class="ref">'+String.fromCharCode(65+i)+'E</span>'+b.map(e=>'<button class="card equip" data-view-equip="'+e.id+'"><b>'+(e.time?esc(e.time)+' · ':'')+'🧰 '+esc(e.title)+'</b></button>').join('')+'</div>'}).join('')+'</div>';h+='</div></div><div class="tool small">🧰 = attrezzatura · 🚐 = furgone · verde = movimento · viola = spettacolo (clicca per dettagli)</div>';$('#content').innerHTML=h;aggiornaVistaGiorno()}function technicians(){$('#content').innerHTML='<div class="tool"><button id="manageRoles">⚙ Gestisci mansioni</button><button id="newTech" class="primary">＋ Nuovo tecnico</button><span class="small">Usa ↑ ↓ per cambiare l’ordine nel calendario.</span></div><div class="list">'+db.tech.map((t,i)=>'<div class="item"><span class="number">'+(i+1)+'</span><div class="info"><b>'+esc(t.name)+'</b><small>'+esc(roleText(t.roles))+'</small></div><button data-reorder="up|'+t.id+'" '+(!i?'disabled':'')+'>↑</button><button data-reorder="down|'+t.id+'" '+(i===db.tech.length-1?'disabled':'')+'>↓</button><button data-open-tech="'+t.id+'">Modifica</button></div>').join('')+'</div>'}
 function van(mm,ss){let required=ss.filter(s=>s.van),h='<div class="tool"><button id="newMove" class="primary">＋ Nuovo movimento</button><button id="newVan">＋ Nuovo furgone</button></div><h3 class="sub">DOVE POTREBBE SERVIRE</h3><div class="list">'+(required.length?required.map(s=>{let covered=db.moves.some(m=>m.date===s.date&&norm(m.to)===norm(s.space));return'<div class="item"><div class="info"><b>'+esc(s.space)+' — '+esc(s.title)+'</b><small>'+esc(s.date)+' · '+esc(slotText(s))+'</small></div><span class="tag '+(covered?'ok':'')+'">'+(covered?'Movimento previsto':'Manca movimento')+'</span><button data-open-shift="'+s.id+'">Apri</button>'+(covered?'':'<button data-create-move="'+s.date+'|'+esc(s.space)+'">＋ Movimento</button>')+'</div>'}).join(''):'<div class="empty">Nessun turno richiede il furgone.</div>')+'</div><h3 class="sub">MOVIMENTI PIANIFICATI</h3><div class="list">'+(mm.length?mm.map(m=>'<div class="item"><div class="info"><b>🚐 '+esc(m.from||'?')+' → '+esc(m.to)+'</b><small>'+esc(m.date)+' · '+esc(m.start+'–'+m.end)+' · '+esc(vname(m.vehicle))+'</small></div><button data-open-move="'+m.id+'">Modifica</button></div>').join(''):'<div class="empty">Nessun movimento nel periodo.</div>')+'</div><h3 class="sub">FURGONI</h3><div class="list">'+db.vehicles.map(v=>'<div class="item"><span class="number">🚐</span><div class="info"><b>'+esc(v.name)+'</b><small>'+esc(v.notes||'Nessuna nota')+'</small></div><button data-open-van="'+v.id+'">Modifica</button></div>').join('')+'</div>';$('#content').innerHTML=h}
 function equipment(ss){let by={};ss.filter(s=>s.equipment.trim()||s.van).forEach(s=>(by[s.space]??=[]).push(s));$('#content').innerHTML='<div class="tool"><button id="manageSpaces">⚙ Gestisci elenco spazi</button><span class="small">Attrezzatura = campo del turno, non turno autonomo.</span></div>'+(Object.keys(by).length?Object.entries(by).map(([p,a])=>'<div class="place"><h3>📍 '+esc(p)+'</h3><table><thead><tr><th>Data</th><th>Orario</th><th>Produzione</th><th>Attrezzatura necessaria</th><th>Furgone</th></tr></thead><tbody>'+a.map(s=>'<tr><td>'+esc(s.date)+'</td><td>'+esc(slotText(s))+'</td><td>'+esc(s.title)+'</td><td class="eq">'+esc(s.equipment||'—')+'</td><td>'+(s.van?'🚐 serve':'—')+'</td></tr>').join('')+'</tbody></table></div>').join(''):'<div class="empty">Nessuna attrezzatura indicata nel periodo.</div>')}
 function equipmentEventsPage(){const h='<div class="tool"><button id="newEquip" class="primary">＋ Nuovo evento attrezzatura</button><span class="small">Eventi separati: compaiono nel calendario prima del furgone.</span></div><div class="list">'+((db.equipmentEvents||[]).length?db.equipmentEvents.slice().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(e=>'<div class="item"><div class="info"><b>🧰 '+esc(e.title||'Senza titolo')+'</b><small>'+esc(e.date)+(e.time?' · '+esc(e.time):'')+(e.notes?' · '+esc(e.notes):'')+'</small></div><button data-open-equip="'+e.id+'">Modifica</button></div>').join(''):'<div class="empty">Nessun evento attrezzatura inserito.</div>')+'</div>';$('#content').innerHTML=h}
@@ -405,8 +405,7 @@ window.addEventListener('load',pulsanti);
  const menu=document.createElement('details');menu.id='mobileCompactMenu';
  const summary=document.createElement('summary');summary.textContent='Menu e strumenti';menu.append(summary);
  const panel=document.createElement('div');menu.append(panel);main.prepend(menu);
- const keepMenuFirst=()=>{if(main.firstElementChild!==menu)main.prepend(menu);};
- new MutationObserver(keepMenuFirst).observe(main,{childList:true});
+ const keepMenuFirst=()=>{if(main.firstElementChild!==menu)main.prepend(menu);};new MutationObserver(keepMenuFirst).observe(main,{childList:true});
  const sections={};
  for(const [key,title] of [['nav','Sezioni'],['access','Accesso e sincronizzazione'],['notifications','Notifiche'],['documents','PDF settimana'],['filters','Ricerca e filtri']]){
   const section=document.createElement('section'),h=document.createElement('h3');h.textContent=title;section.append(h);const body=document.createElement('div');if(key==='documents')body.className='mobile-documents';section.append(body);panel.append(section);sections[key]={section,body};
@@ -1282,75 +1281,41 @@ window.addEventListener('load',mount);mount();
 
 <style>
 #content .tsc-tech-toggle{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;text-align:left;background:transparent;color:inherit;border:0;padding:4px;font:inherit;white-space:normal;cursor:pointer}
-#content .tsc-tech-toggle .tsc-tech-arrow{font-size:18px;color:#4f46e5;flex:0 0 auto}
-#content .tsc-tech-toggle .tsc-tech-count{font-size:12px;color:#64748b;margin-left:auto;flex:0 0 auto}
-#content .tsc-tech-collapsed>.cell{display:none!important}
-#content .tsc-tech-collapsed>.label{grid-column:1/-1}
+#content .tsc-tech-arrow{color:#4f46e5}#content .tsc-tech-count{font-size:12px;color:#64748b;margin-left:auto}
+#content .tsc-tech-collapsed>.cell{display:none!important}#content .tsc-tech-collapsed>.label{grid-column:1/-1}
 #content .tsc-tech-found>.label{background:#fff6d9!important;box-shadow:inset 4px 0 #d99000}
-#content .tsc-tech-toggle:focus-visible{outline:3px solid #4f46e5;outline-offset:2px}
-@media(max-width:800px){#content .weekrow.tsc-tech-row{padding:10px 12px;min-height:0!important}#content .tsc-tech-row>.label{padding-bottom:4px}#content .tsc-tech-toggle{font-size:16px}}
+#content .tsc-tech-toggle:focus-visible{outline:3px solid #4f46e5}
+@media(max-width:800px){#content .weekrow.tsc-tech-row{padding:10px 12px;min-height:0!important}#content .tsc-tech-row>.label{padding-bottom:4px}}
 </style>
 <script>
-/* Tendine tecnici: modifica solo la presentazione, non i dati dei turni. */
-(()=>{
-'use strict';
-const states=new Map();let queued=false;
-const normalize=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('it').trim();
-function update(){
- if(page!=='calendar')return;
- const root=document.getElementById('content');if(!root)return;
- const q=normalize(document.getElementById('search')?.value),tokens=q.split(/\s+/).filter(Boolean);
- const rows=[...root.querySelectorAll('.weekrow')].filter(row=>row.querySelector(':scope > .cell[data-cell-type="tech"]'));
- const entries=[];
- for(const row of rows){
-  const cell=row.querySelector(':scope > .cell[data-cell-type="tech"]'),label=row.querySelector(':scope > .label');
-  if(!label)continue;
-  const id=cell.dataset.cellId,tech=(db.tech||[]).find(t=>String(t.id)===String(id));
-  const found=tokens.length>0&&tokens.every(t=>normalize(tech?.name).includes(t));
-  row.classList.add('tsc-tech-row');row.classList.toggle('tsc-tech-found',found);
-  let button=label.querySelector('.tsc-tech-toggle');
-  if(!button){
-   button=document.createElement('button');button.type='button';button.className='tsc-tech-toggle';
-   const arrow=document.createElement('span');arrow.className='tsc-tech-arrow';arrow.setAttribute('aria-hidden','true');button.append(arrow);
-   while(label.firstChild)button.append(label.firstChild);
-   const count=document.createElement('span');count.className='tsc-tech-count';button.append(count);label.append(button);
-  }
-  const mobile=matchMedia('(max-width:800px)').matches;
-  const visibleCells=[...row.querySelectorAll(':scope > .cell')].filter(c=>!mobile||!c.classList.contains('mobile-off'));
-  const period=mobile?visibleCells.map(c=>c.dataset.cellDate).join(','):fmt(monday(date));
-  const key=id+'|'+period;
-  button.dataset.tscTechKey=key;
-  const open=states.has(key)?states.get(key):found;
-  row.classList.toggle('tsc-tech-collapsed',!open);button.setAttribute('aria-expanded',String(open));
-  const arrow=button.querySelector('.tsc-tech-arrow'),symbol=open?'▾':'▸';if(arrow.textContent!==symbol)arrow.textContent=symbol;
-  const count=visibleCells.reduce((n,c)=>n+c.querySelectorAll('[data-view-shift],[data-open-shift]').length,0);
-  const text=count+' '+(count===1?'turno':'turni')+(mobile?'':' nella settimana');
-  const badge=button.querySelector('.tsc-tech-count');if(badge.textContent!==text)badge.textContent=text;
-  entries.push({row,found});
- }
- if(entries.length){
-  const ordered=entries.filter(x=>x.found).concat(entries.filter(x=>!x.found)).map(x=>x.row);
-  const parent=ordered[0].parentElement;
-  if(ordered.every(row=>row.parentElement===parent)){
-   const current=[...parent.children].filter(el=>rows.includes(el));
-   if(current.some((el,i)=>el!==ordered[i])){
-    const anchor=document.createComment('tecnici');parent.insertBefore(anchor,current[0]);
-    ordered.forEach(row=>parent.insertBefore(row,anchor));anchor.remove();
-   }
-  }
- }
-}
+(()=>{'use strict';const states=new Map();let queued=false;
+const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+function update(){if(page!=='calendar')return;const root=document.getElementById('content');if(!root)return;
+const tokens=norm(document.getElementById('search')?.value).split(/\s+/).filter(Boolean);
+const rows=[...root.querySelectorAll('.weekrow')].filter(r=>r.querySelector(':scope > .cell[data-cell-type="tech"]')),entries=[];
+for(const row of rows){const cell=row.querySelector(':scope > .cell[data-cell-type="tech"]'),label=row.querySelector(':scope > .label');if(!label)continue;
+const id=cell.dataset.cellId,tech=db.tech.find(t=>String(t.id)===String(id)),found=tokens.length>0&&tokens.every(t=>norm(tech?.name).includes(t));
+row.classList.add('tsc-tech-row');row.classList.toggle('tsc-tech-found',found);
+let button=label.querySelector('.tsc-tech-toggle');if(!button){button=document.createElement('button');button.type='button';button.className='tsc-tech-toggle';const arrow=document.createElement('span');arrow.className='tsc-tech-arrow';arrow.setAttribute('aria-hidden','true');button.append(arrow);while(label.firstChild)button.append(label.firstChild);const badge=document.createElement('span');badge.className='tsc-tech-count';button.append(badge);label.append(button);}
+const mobile=matchMedia('(max-width:800px)').matches,cells=[...row.querySelectorAll(':scope > .cell')].filter(c=>!mobile||!c.classList.contains('mobile-off'));
+const key=id+'|'+(mobile?cells.map(c=>c.dataset.cellDate).join(','):fmt(monday(date)));button.dataset.tscTechKey=key;
+const open=states.has(key)?states.get(key):found;row.classList.toggle('tsc-tech-collapsed',!open);button.setAttribute('aria-expanded',String(open));
+const arrow=button.querySelector('.tsc-tech-arrow'),symbol=open?'▾':'▸';if(arrow.textContent!==symbol)arrow.textContent=symbol;
+const n=cells.reduce((n,c)=>n+c.querySelectorAll('[data-view-shift],[data-open-shift]').length,0),text=n+' '+(n===1?'turno':'turni')+(mobile?'':' nella settimana'),badge=button.querySelector('.tsc-tech-count');if(badge.textContent!==text)badge.textContent=text;entries.push({row,found});}
+if(entries.length){const ordered=entries.filter(x=>x.found).concat(entries.filter(x=>!x.found)).map(x=>x.row),parent=ordered[0].parentElement;
+if(ordered.every(r=>r.parentElement===parent)){const current=[...parent.children].filter(r=>rows.includes(r));if(current.some((r,i)=>r!==ordered[i])){const anchor=document.createComment('tecnici');parent.insertBefore(anchor,current[0]);ordered.forEach(r=>parent.insertBefore(r,anchor));anchor.remove();}}}}
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;update();});}
-window.addEventListener('click',event=>{
- if(!(event.target instanceof Element))return;
- const button=event.target.closest('.tsc-tech-toggle');if(!button)return;
- event.preventDefault();event.stopImmediatePropagation();
- states.set(button.dataset.tscTechKey,button.getAttribute('aria-expanded')!=='true');update();
-},true);
-const previousRender=render;render=function(){const result=previousRender.apply(this,arguments);update();return result;};
-const search=document.getElementById('search');
-search?.addEventListener('input',()=>{states.clear();schedule();});
-const root=document.getElementById('content');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true});
-window.addEventListener('resize',schedule);window.addEventListener('load',schedule);update();
-})();
+window.addEventListener('click',e=>{if(!(e.target instanceof Element))return;const b=e.target.closest('.tsc-tech-toggle');if(!b)return;e.preventDefault();e.stopImmediatePropagation();states.set(b.dataset.tscTechKey,b.getAttribute('aria-expanded')!=='true');update();},true);
+const old=render;render=function(){const result=old.apply(this,arguments);update();return result;};
+document.getElementById('search')?.addEventListener('input',()=>{states.clear();schedule();});
+const root=document.getElementById('content');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true});window.addEventListener('resize',schedule);window.addEventListener('load',schedule);update();})();
+</script>
+
+<script>
+(()=>{'use strict';const original=calendar;calendar=function(){const result=original.apply(this,arguments);
+const grid=document.querySelector('#content .grid');if(!grid)return result;
+const showCell=grid.querySelector('.weekrow > .cell[data-cell-type="show"]'),vanCell=grid.querySelector('.weekrow > .cell[data-cell-type="van"]');
+if(!showCell||!vanCell)return result;const showRow=showCell.parentElement,vanRow=vanCell.parentElement,heading=vanRow.previousElementSibling;
+if(showRow.parentElement!==grid||vanRow.parentElement!==grid||!heading?.classList.contains('section'))return result;
+if(showRow.nextElementSibling!==heading){showRow.after(heading);heading.after(vanRow);}return result;};if(page==='calendar')render();})();
 </script>
