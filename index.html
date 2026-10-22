@@ -1101,6 +1101,82 @@ window.addEventListener('load',mount);mount();
 
 
 
+</script><style>
+#tscNoticeBoard{margin:12px 0 16px;border:1px solid #e4c86a;border-radius:12px;background:#fff9df;color:#273247;overflow:hidden}
+#tscNoticeBoard[hidden]{display:none!important}
+#tscNoticeBoard>summary{padding:14px 16px;cursor:pointer;font-weight:700;min-height:48px;list-style:none}
+#tscNoticeBoard>summary::-webkit-details-marker{display:none}
+#tscNoticeBoard>summary::before{content:'▸';margin-right:8px}
+#tscNoticeBoard[open]>summary::before{content:'▾'}
+.tsc-notice-count{display:inline-block;margin-left:12px;font-size:13px;background:#fff0b3;border-radius:20px;padding:3px 9px}
+.tsc-notice-panel,.tsc-notice-archive{padding:14px;display:grid;gap:12px}
+.tsc-notice-card{background:white;border:1px solid #e1d8b7;border-radius:10px;padding:14px;min-width:0;overflow-wrap:anywhere}
+.tsc-notice-pinned{border-left:5px solid #c58d12}
+.tsc-notice-card h3{font-size:17px;margin:7px 0}
+.tsc-notice-card small{color:#64748b}
+.tsc-notice-badge{font-size:12px;color:#795507}
+.tsc-notice-preview{white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:8px 0;line-height:1.5}
+.tsc-notice-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+.tsc-notice-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+#tscNoticeForm .tsc-notice-check{display:flex;flex-direction:row;align-items:center;gap:8px}
+#tscNoticeForm .tsc-notice-check input{width:20px;height:20px;flex:0 0 auto}
+#tscNoticeForm textarea{width:100%;min-height:150px;resize:vertical;font:inherit}
+@media(max-width:800px){#tscNoticeBoard>summary{font-size:16px;padding:13px 12px}.tsc-notice-panel,.tsc-notice-archive{padding:12px}#tscNoticeForm input,#tscNoticeForm textarea{font-size:16px}.tsc-notice-panel button{min-height:44px}}
+</style>
+<script>
+(()=>{
+'use strict';if(window.tscNoticeBoardV1)return;window.tscNoticeBoardV1=true;
+const notes=()=>Array.isArray(db.generalNotes)?db.generalNotes:[];
+const today=()=>fmt(new Date());
+const ordered=list=>list.slice().sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned)||String(b.date||'').localeCompare(String(a.date||''))||String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+const active=()=>ordered(notes().filter(n=>!n.expiresOn||n.expiresOn>=today()));
+const human=value=>{if(!value)return '';const d=new Date(value+'T12:00:00');return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString('it-IT');};
+let board=null,lastSignature='',timer=null;
+function noteCard(n){const expired=n.expiresOn&&n.expiresOn<today();return '<article class="tsc-notice-card'+(n.pinned?' tsc-notice-pinned':'')+'">'+(n.pinned?'<span class="tsc-notice-badge">📌 In evidenza</span>':'')+'<h3>'+esc(n.title||'Nota')+'</h3><p class="tsc-notice-preview">'+esc(n.text||'')+'</p>'+(n.expiresOn?'<small>'+(expired?'Scaduto il ':'Visibile fino al ')+esc(human(n.expiresOn))+'</small>':'')+'<div class="tsc-notice-actions"><button type="button" data-notice-view="'+esc(n.id)+'">Leggi tutto</button></div></article>';}
+function mount(){
+ const nav=document.getElementById('nav');if(nav&&!document.getElementById('tscNotesMenuButton')){const b=document.createElement('button');b.id='tscNotesMenuButton';b.type='button';b.dataset.page='tscNotes';b.textContent='Note';nav.append(b);}
+ const content=document.getElementById('content');if(!content)return;
+ if(!board?.isConnected){board=document.createElement('details');board.id='tscNoticeBoard';const summary=document.createElement('summary');summary.innerHTML='<span>📌 Avvisi e comunicazioni</span><span class="tsc-notice-count"></span>';const panel=document.createElement('div');panel.className='tsc-notice-panel';board.append(summary,panel);content.before(board);lastSignature='';}
+ if(board.parentElement!==content.parentElement||board.nextElementSibling!==content)content.before(board);
+ board.hidden=page!=='calendar';
+ const list=active(),signature=JSON.stringify([list,!!unlocked,today()]);if(signature===lastSignature)return;lastSignature=signature;
+ board.querySelector('.tsc-notice-count').textContent=list.length+' '+(list.length===1?'avviso':'avvisi');
+ board.querySelector('.tsc-notice-panel').innerHTML=(unlocked?'<div class="tsc-notice-actions"><button type="button" class="primary" data-notice-new>＋ Nuova nota</button></div>':'')+(list.length?list.map(noteCard).join(''):'<p class="note">Nessun avviso attivo.</p>')+'<button type="button" data-notice-archive>Tutte le note →</button>';
+}
+function archive(){
+ document.getElementById('title').textContent='Note e comunicazioni';document.getElementById('calendarControls')?.classList.add('hidden');document.getElementById('newShift')?.classList.add('hidden');
+ document.querySelectorAll('#nav button[data-page]').forEach(b=>{const selected=b.dataset.page==='tscNotes';b.classList.toggle('active',selected);if(selected)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+ document.getElementById('content').innerHTML='<div class="tsc-notice-archive">'+(unlocked?'<div><button type="button" class="primary" data-notice-new>＋ Nuova nota</button></div>':'<p class="note">Lettura libera. Sblocca con PIN per inserire o modificare.</p>')+(notes().length?ordered(notes()).map(noteCard).join(''):'<p class="empty">Nessuna nota inserita.</p>')+'</div>';
+}
+function view(id){const n=notes().find(x=>String(x.id)===String(id));if(!n)return;
+ modal(n.title||'Nota',(n.pinned?'<p>📌 In evidenza</p>':'')+'<p class="note">Data: '+esc(human(n.date))+(n.expiresOn?' · Scadenza: '+esc(human(n.expiresOn)):'')+'</p><div class="tsc-notice-text">'+esc(n.text||'')+'</div><div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-notice-edit="'+esc(n.id)+'">Modifica</button>':'')+'</div>');
+}
+function persist(next){const previous=db.generalNotes;db.generalNotes=next;try{save();}catch(error){if(previous===undefined)delete db.generalNotes;else db.generalNotes=previous;console.error(error);toast('Salvataggio locale non riuscito. Il modulo resta aperto.');return;}
+ close();lastSignature='';render();toast('Note aggiornate sul dispositivo. Controlla lo stato del salvataggio online.');}
+function edit(id){if(!can())return;const old=notes().find(x=>String(x.id)===String(id)),n=old||{title:'',text:'',date:today(),pinned:false,expiresOn:''};
+ modal(old?'Modifica nota':'Nuova nota','<form id="tscNoticeForm"><div class="form"><label class="full">Titolo<input name="title" required maxlength="200" value="'+esc(n.title||'')+'"></label><label class="full">Testo<textarea name="text" required rows="7" maxlength="20000">'+esc(n.text||'')+'</textarea></label><label>Data<input type="date" name="date" required value="'+esc(n.date||today())+'"></label><label>Scadenza facoltativa<input type="date" name="expiresOn" value="'+esc(n.expiresOn||'')+'"></label><label class="full tsc-notice-check"><input type="checkbox" name="pinned"'+(n.pinned?' checked':'')+'> Metti in evidenza</label><p class="full note">Senza scadenza l’avviso resta visibile. Dopo la scadenza resta consultabile in “Tutte le note”. La lettura non viene tracciata.</p></div><div class="actions">'+(old?'<button type="button" class="danger" data-notice-delete="'+esc(old.id)+'">Elimina nota</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva nota</button></div></form>');
+ const form=document.getElementById('tscNoticeForm');form.onsubmit=event=>{event.preventDefault();if(!unlocked||!form.reportValidity())return;const f=new FormData(form),title=String(f.get('title')||'').trim(),text=String(f.get('text')||'').trim();if(!title||!text)return toast('Completa titolo e testo.');
+ const date=String(f.get('date')||today()),expiresOn=String(f.get('expiresOn')||'');if(expiresOn&&expiresOn<date)return toast('La scadenza non può precedere la data della nota.');
+ const now=new Date().toISOString(),entry={...(old||{}),id:old?old.id:uid(),title,text,date,pinned:f.has('pinned'),expiresOn,createdAt:old?.createdAt||now,updatedAt:now};persist(old?notes().map(x=>x.id===old.id?entry:x):notes().concat(entry));};
+}
+function openArchive(){if(document.querySelector('#modal.show form'))return toast('Salva o chiudi il modulo prima di cambiare pagina.');page='tscNotes';render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;}
+window.addEventListener('click',event=>{
+ if(!(event.target instanceof Element))return;const b=event.target.closest('button');if(!b)return;let action=null;
+ if(b.id==='tscNotesMenuButton'||b.hasAttribute('data-notice-archive'))action=openArchive;
+ else if(b.hasAttribute('data-notice-new')||b.hasAttribute('data-tsc-note-new'))action=()=>edit();
+ else if(b.hasAttribute('data-notice-view'))action=()=>view(b.getAttribute('data-notice-view'));
+ else if(b.hasAttribute('data-tsc-note-view'))action=()=>view(b.getAttribute('data-tsc-note-view'));
+ else if(b.hasAttribute('data-notice-edit'))action=()=>edit(b.getAttribute('data-notice-edit'));
+ else if(b.hasAttribute('data-tsc-note-edit'))action=()=>edit(b.getAttribute('data-tsc-note-edit'));
+ else if(b.hasAttribute('data-notice-delete'))action=()=>{if(!can())return;const id=b.getAttribute('data-notice-delete'),n=notes().find(x=>String(x.id)===id);if(n&&confirm('Eliminare la nota «'+n.title+'»?'))persist(notes().filter(x=>String(x.id)!==id));};
+ if(action){event.preventDefault();event.stopImmediatePropagation();action();}
+},true);
+const originalRender=render;render=function(){const result=originalRender.apply(this,arguments);if(page==='tscNotes')archive();mount();return result;};
+function schedule(){if(timer)return;timer=setTimeout(()=>{timer=null;mount();},0);}
+const main=document.querySelector('main');if(main)new MutationObserver(schedule).observe(main,{childList:true,subtree:true});
+window.addEventListener('load',mount);document.addEventListener('visibilitychange',()=>{if(!document.hidden)mount();});setInterval(mount,60000);
+if(page==='tscNotes')archive();mount();
+})();
 </script>
 </body>
 </html>
