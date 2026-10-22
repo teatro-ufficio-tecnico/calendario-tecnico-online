@@ -604,6 +604,7 @@ function compress(file){return new Promise((resolve,reject)=>{
   if(!safeImage(result)||result.length>140000)throw Error('La foto è ancora troppo pesante. Scegline una più piccola.');resolve(result);
  }catch(error){reject(error);}finally{URL.revokeObjectURL(url);}};img.src=url;
 });}
+function imagesOf(entry){return [...new Set([...(Array.isArray(entry?.cardImages)?entry.cardImages:[]),entry?.cardImage].filter(safeImage))];}
 function paint(){
  for(const [name,key,fallback] of [['move','moves','verde'],['equip','equipmentEvents','arancione']]){
   document.querySelectorAll('[data-view-'+name+'],[data-open-'+name+']').forEach(node=>{
@@ -615,6 +616,13 @@ function paint(){
     if(!image){image=document.createElement('img');image.className='card-photo-thumb';image.alt='Foto allegata alla card';image.loading='lazy';(card.querySelector('.info')||card).append(image);}
     if(image.getAttribute('src')!==entry.cardImage)image.src=entry.cardImage;
    }else if(image)image.remove();
+   const extras=imagesOf(entry).slice(1);let gallery=card.querySelector('.tsc-extra-photos');
+   if(!extras.length){if(gallery)gallery.remove();}
+   else{if(!gallery){gallery=document.createElement('span');gallery.className='tsc-extra-photos';(card.querySelector('.info')||card).append(gallery);}
+    const existing=[...gallery.querySelectorAll('img')];
+    if(existing.length!==extras.length||existing.some((img,i)=>img.getAttribute('src')!==extras[i])){gallery.replaceChildren();extras.forEach((src,i)=>{const img=document.createElement('img');img.className='card-photo-thumb';img.src=src;img.alt='Foto allegata '+(i+2);img.loading='lazy';gallery.append(img);});}
+   }
+
   });
  }
 }
@@ -623,22 +631,27 @@ function attach(form,old,kind){
  const fallback=kind==='move'?'verde':'arancione';
  let field=form.querySelector('[name="cardColor"]');
  if(!field){const label=document.createElement('label');label.className='full';label.textContent='Colore della card';field=document.createElement('select');field.name='cardColor';for(const [key,value] of Object.entries(palette)){const option=document.createElement('option');option.value=key;option.textContent=value[0];field.append(option);}field.value=valid(old?.cardColor,fallback);label.append(field);root.append(label);const sample=document.createElement('div');sample.className='full card-color-sample';sample.textContent='Anteprima colore';const update=()=>{const c=palette[valid(field.value,fallback)];sample.style.background=c[1];sample.style.borderLeftColor=c[2];sample.style.color=c[3];};field.addEventListener('change',update);root.append(sample);update();}
- let photo=safeImage(old?.cardImage)?old.cardImage:'',busy=false;
+ let photos=imagesOf(old),busy=false;
  const editor=document.createElement('fieldset');editor.className='full card-photo-editor';
- const legend=document.createElement('legend');legend.textContent='Foto della card';editor.append(legend);
- const label=document.createElement('label');label.textContent='Scegli una foto dal telefono';const input=document.createElement('input');input.type='file';input.accept='image/*';label.append(input);editor.append(label);
- const image=document.createElement('img');image.alt='Anteprima della foto';editor.append(image);
- const remove=document.createElement('button');remove.type='button';remove.textContent='Rimuovi foto';editor.append(remove);
- const note=document.createElement('small');note.textContent='Una foto per card. Viene ridotta per contenere il peso del calendario.';editor.append(note);root.append(editor);
+ const legend=document.createElement('legend');legend.textContent='Foto della card (selezione multipla)';editor.append(legend);
+ const label=document.createElement('label');label.textContent='Aggiungi una o più immagini';
+ const input=document.createElement('input');input.type='file';input.accept='image/*';input.multiple=true;label.append(input);editor.append(label);
+ const previews=document.createElement('div');previews.className='tsc-photo-previews';editor.append(previews);
+ const note=document.createElement('small');note.textContent='Aggiunte e rimozioni si confermano con Salva. Le immagini vengono ridotte.';editor.append(note);root.append(editor);
  const submit=form.querySelector('button.primary[type="submit"],button.primary:not([type])');
- function update(){image.hidden=!photo;remove.hidden=!photo;if(photo)image.src=photo;else image.removeAttribute('src');}
+ function update(){previews.replaceChildren();photos.forEach((src,index)=>{
+  const tile=document.createElement('div'),image=document.createElement('img');image.className='card-photo-detail';image.src=src;image.alt='Foto '+(index+1);
+  const remove=document.createElement('button');remove.type='button';remove.textContent='Rimuovi foto '+(index+1);remove.disabled=busy;
+  remove.onclick=()=>{if(busy||!unlocked)return;photos.splice(index,1);update();note.textContent='Rimozione da confermare con Salva.';};tile.append(image,remove);previews.append(tile);
+ });}
  input.onchange=async()=>{
-  const file=input.files?.[0];if(!file)return;busy=true;input.disabled=true;remove.disabled=true;if(submit)submit.disabled=true;note.textContent='Preparazione della foto…';
-  try{photo=await compress(file);update();note.textContent='Foto pronta. Premi Salva per confermare.';}
-  catch(error){note.textContent=error.message;toast(error.message);}
-  finally{busy=false;input.value='';input.disabled=false;remove.disabled=false;if(submit)submit.disabled=false;}
- };
- remove.onclick=()=>{photo='';update();note.textContent='La foto verrà rimossa salvando la card.';};update();
+  const files=[...(input.files||[])];if(!files.length)return;
+  busy=true;input.disabled=true;const wasDisabled=submit?.disabled;if(submit)submit.disabled=true;update();const added=[];
+  try{for(let i=0;i<files.length;i++){note.textContent='Preparazione foto '+(i+1)+' di '+files.length+'…';added.push(await compress(files[i]));}
+   if(!form.isConnected)return;photos=[...new Set(photos.concat(added))];note.textContent='Foto pronte. Premi Salva per confermare.';
+  }catch(error){note.textContent=error.message+' Il gruppo non è stato aggiunto.';toast(note.textContent);}
+  finally{busy=false;input.value='';input.disabled=false;if(submit)submit.disabled=!!wasDisabled;update();}
+ };update();
  form.onsubmit=event=>{
   event.preventDefault();if(!unlocked||busy)return;
   const f=new FormData(form),key=kind==='move'?'moves':'equipmentEvents';let entry;
@@ -649,10 +662,10 @@ function attach(form,old,kind){
    entry={...(old||{}),id:old?old.id:uid(),title:String(f.get('title')||'').trim(),date:String(f.get('date')||''),time:String(f.get('time')||'').trim(),notes:String(f.get('notes')||'').trim()};
    if(!entry.title||!entry.date)return toast('Completa titolo e data.');
   }
-  entry.cardColor=valid(f.get('cardColor'),fallback);if(photo)entry.cardImage=photo;else delete entry.cardImage;
+  entry.cardColor=valid(f.get('cardColor'),fallback);entry.cardImages=photos.slice();if(photos.length)entry.cardImage=photos[0];else delete entry.cardImage;
   const previous=db[key]||[],next=old?previous.map(x=>x.id===entry.id?entry:x):previous.concat(entry);
   // Le foto non devono occupare tutto lo spazio del salvataggio locale.
-  const photoChars=['moves','equipmentEvents'].reduce((sum,k)=>sum+(k===key?next:(db[k]||[])).reduce((n,x)=>n+(typeof x.cardImage==='string'?x.cardImage.length:0),0),0);
+  const photoChars=['moves','equipmentEvents'].reduce((sum,k)=>sum+(k===key?next:(db[k]||[])).reduce((n,x)=>n+((typeof x.cardImage==='string'?x.cardImage.length:0)+(Array.isArray(x.cardImages)?x.cardImages.reduce((a,p)=>a+(typeof p==='string'?p.length:0),0):0)),0),0);
   if(photoChars>1500000)return toast('Limite foto del calendario raggiunto. Rimuovi alcune foto prima di aggiungerne altre.');
   db[key]=next;
   try{save();}catch(error){db[key]=previous;console.error(error);return toast('Salvataggio locale non riuscito. La card non è stata salvata: prova senza foto.');}
@@ -662,7 +675,12 @@ function attach(form,old,kind){
 const move=moveForm,equip=equipForm;
 moveForm=function(mid){move.apply(this,arguments);const form=document.getElementById('moveForm');if(form)attach(form,db.moves.find(x=>x.id===mid),'move');};
 equipForm=function(eid){equip.apply(this,arguments);const form=document.getElementById('equipForm');if(form)attach(form,(db.equipmentEvents||[]).find(x=>x.id===eid),'equip');};
-function detail(entry){if(!safeImage(entry?.cardImage))return;const body=document.getElementById('modalBody');if(!body)return;const image=document.createElement('img');image.className='card-photo-detail';image.src=entry.cardImage;image.alt='Foto allegata alla card';const caption=document.createElement('p');caption.textContent='Foto allegata';const box=document.createElement('div');box.append(caption,image);const actions=body.querySelector('.actions');if(actions)actions.before(box);else body.append(box);}
+function detail(entry){
+ const photos=imagesOf(entry),body=document.getElementById('modalBody');if(!body||!photos.length)return;
+ const box=document.createElement('div');box.className='tsc-photo-details';const caption=document.createElement('p');caption.textContent='Foto allegate: '+photos.length;box.append(caption);
+ photos.forEach((src,i)=>{const image=document.createElement('img');image.className='card-photo-detail';image.src=src;image.alt='Foto allegata '+(i+1)+' di '+photos.length;box.append(image);});
+ const actions=body.querySelector('.actions');if(actions)actions.before(box);else body.append(box);
+}
 const viewMoveOriginal=viewMove,viewEquipOriginal=viewEquip;
 viewMove=function(id){viewMoveOriginal.apply(this,arguments);detail(db.moves.find(x=>x.id===id));};
 viewEquip=function(id){viewEquipOriginal.apply(this,arguments);detail((db.equipmentEvents||[]).find(x=>x.id===id));};
@@ -834,32 +852,7 @@ if(active())render();
  #content .grid>.mobile-days{margin:0;border-bottom:1px solid #dce4ee}
 }
 </style>
-<script>
-/* Posizione spettacoli: prima dell'intestazione dei giorni, dopo i filtri. */
-(()=>{
- 'use strict';if(window.tscShowsAboveDays)return;window.tscShowsAboveDays=true;
- const root=document.getElementById('content');if(!root)return;
- function arrange(){
-  const grid=root.querySelector('.grid');if(!grid)return;
-  const weekhead=grid.querySelector('.weekhead');
-  const heading=grid.querySelector('.section.show');
-  const row=grid.querySelector('.cell[data-cell-type="show"]')?.closest('.weekrow');
-  if(!weekhead||!heading||!row)return;
-  const mobileDays=root.querySelector('.mobile-days');
-  // Sposta gli elementi esistenti, conservandone eventi, ID e card.
-  const desired=[heading,row,...(mobileDays?[mobileDays]:[])];
-  let anchor=weekhead;
-  for(let i=desired.length-1;i>=0;i--){
-   const el=desired[i];if(el.parentNode!==grid||el.nextElementSibling!==anchor)grid.insertBefore(el,anchor);anchor=el;
-  }
-  heading.classList.add('tsc-shows-above-days');row.classList.add('tsc-shows-above-days');
-  const title=heading.textContent.replace(/\s*\(non turni tecnici\)/gi,'');
-  if(heading.textContent!==title)heading.textContent=title;
- }
- new MutationObserver(arrange).observe(root,{childList:true,subtree:true});
- window.addEventListener('load',arrange);arrange();
-})();
-</script><style>
+<style>
 #content .section.show.tsc-shows-above-days{margin-top:0;background:#e4e0f4;color:#3f326f;border-bottom:1px solid #d3cbe7}
 @media(max-width:800px){
  #content .weekrow.tsc-shows-above-days{background:#f7f5fc;border-bottom:8px solid var(--bg,#f4f6fa)}
@@ -867,32 +860,7 @@ if(active())render();
  #content .grid>.mobile-days{margin:0;border-bottom:1px solid #dce4ee}
 }
 </style>
-<script>
-/* Posizione spettacoli: prima dell'intestazione dei giorni, dopo i filtri. */
-(()=>{
- 'use strict';if(window.tscShowsAboveDays)return;window.tscShowsAboveDays=true;
- const root=document.getElementById('content');if(!root)return;
- function arrange(){
-  const grid=root.querySelector('.grid');if(!grid)return;
-  const weekhead=grid.querySelector('.weekhead');
-  const heading=grid.querySelector('.section.show');
-  const row=grid.querySelector('.cell[data-cell-type="show"]')?.closest('.weekrow');
-  if(!weekhead||!heading||!row)return;
-  const mobileDays=root.querySelector('.mobile-days');
-  // Sposta gli elementi esistenti, conservandone eventi, ID e card.
-  const desired=[heading,row,...(mobileDays?[mobileDays]:[])];
-  let anchor=weekhead;
-  for(let i=desired.length-1;i>=0;i--){
-   const el=desired[i];if(el.parentNode!==grid||el.nextElementSibling!==anchor)grid.insertBefore(el,anchor);anchor=el;
-  }
-  heading.classList.add('tsc-shows-above-days');row.classList.add('tsc-shows-above-days');
-  const title=heading.textContent.replace(/\s*\(non turni tecnici\)/gi,'');
-  if(heading.textContent!==title)heading.textContent=title;
- }
- new MutationObserver(arrange).observe(root,{childList:true,subtree:true});
- window.addEventListener('load',arrange);arrange();
-})();
-</script><style>
+<style>
 #content .tsc-inactive-technician{display:none!important}
 #visibleTechniciansButton,#tscVisibilityV2Button{display:none!important}
 .tsc-inactive-assignment{display:none!important}
@@ -1109,111 +1077,6 @@ window.addEventListener('load',mount);mount();
 #tscNoteForm textarea{width:100%;min-height:160px;resize:vertical;font:inherit}
 @media(max-width:800px){.tsc-note-card{font-size:16px}.tsc-notes-list{padding:12px}#tscNoteForm input,#tscNoteForm textarea{font-size:16px}}
 </style>
-<script>
-/* Note generali indipendenti dai turni. Non implementa l'invio push. */
-(()=>{
-'use strict';if(window.tscGeneralNotes)return;window.tscGeneralNotes=true;
-const notes=()=>Array.isArray(db.generalNotes)?db.generalNotes:[];
-function mount(){const nav=document.getElementById('nav');if(!nav||document.getElementById('tscNotesMenuButton'))return;const b=document.createElement('button');b.type='button';b.id='tscNotesMenuButton';b.dataset.page='tscNotes';b.textContent='Note';nav.append(b);}
-function draw(){
- const title=document.getElementById('title');if(title)title.textContent='Note e comunicazioni';
- document.getElementById('calendarControls')?.classList.add('hidden');
- document.querySelectorAll('#nav button[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page==='tscNotes');if(b.dataset.page==='tscNotes')b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
- const list=notes().slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.updatedAt||'').localeCompare(a.updatedAt||''));
- document.getElementById('content').innerHTML='<div class="tsc-notes-list">'+(unlocked?'<div><button type="button" class="primary" data-tsc-note-new>＋ Nuova nota</button></div>':'<p class="note">Sblocca con PIN per inserire o modificare le note.</p>')+(list.length?list.map(n=>'<button type="button" class="tsc-note-card" data-tsc-note-view="'+esc(n.id)+'"><b>'+esc(n.title||'Nota')+'</b><small>'+esc(n.date||'')+'</small><span>'+esc(n.text||'')+'</span></button>').join(''):'<div class="empty">Nessuna nota inserita.</div>')+'</div>';
-}
-function view(id){const n=notes().find(x=>String(x.id)===String(id));if(!n)return;modal(n.title||'Nota','<p class="note">Data: '+esc(n.date||'')+'</p><div class="tsc-note-text">'+esc(n.text||'')+'</div><div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-tsc-note-edit="'+esc(n.id)+'">Modifica</button>':'')+'</div>');}
-function edit(id){
- if(!can())return;
- const old=notes().find(x=>String(x.id)===String(id)),n=old||{title:'',text:'',date:fmt(new Date())};
- modal(old?'Modifica nota':'Nuova nota','<form id="tscNoteForm"><div class="form"><label class="full">Titolo<input name="title" required maxlength="200" value="'+esc(n.title||'')+'"></label><label class="full">Data<input name="date" type="date" required value="'+esc(n.date||fmt(new Date()))+'"></label><label class="full">Testo della nota<textarea name="text" required maxlength="20000" rows="8">'+esc(n.text||'')+'</textarea></label></div><div class="actions">'+(old?'<button type="button" class="danger" id="tscDeleteNote">Elimina nota</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva nota</button></div></form>');
- const form=document.getElementById('tscNoteForm');
- form.onsubmit=event=>{
-  event.preventDefault();if(!unlocked)return;const f=new FormData(form),title=String(f.get('title')||'').trim(),text=String(f.get('text')||'').trim(),day=String(f.get('date')||'');if(!title||!text||!day)return toast('Completa titolo, data e testo.');
-  const now=new Date().toISOString(),entry={...(old||{}),id:old?old.id:uid(),title,text,date:day,createdAt:old?.createdAt||now,updatedAt:now};
-  const previous=db.generalNotes;db.generalNotes=old?notes().map(x=>x.id===old.id?entry:x):notes().concat(entry);
-  try{save();}catch(error){if(previous===undefined)delete db.generalNotes;else db.generalNotes=previous;console.error(error);toast('Salvataggio locale non riuscito. La nota non è stata salvata.');return;}
-  close();page='tscNotes';render();toast('Nota salvata sul dispositivo. Controlla lo stato del salvataggio online.');
- };
- const del=document.getElementById('tscDeleteNote');if(del)del.onclick=()=>{
-  if(!can()||!confirm('Eliminare la nota «'+old.title+'»?'))return;
-  const previous=db.generalNotes;db.generalNotes=notes().filter(x=>x.id!==old.id);
-  try{save();}catch(error){db.generalNotes=previous;console.error(error);toast('Eliminazione non salvata.');return;}
-  close();page='tscNotes';render();
- };
-}
-const previousRender=render;
-render=function(){const result=previousRender.apply(this,arguments);mount();if(page==='tscNotes')draw();return result;};
-document.addEventListener('click',event=>{
- if(!(event.target instanceof Element))return;const b=event.target.closest('button');if(!b)return;
- let action=null;
- if(b.id==='tscNotesMenuButton')action=()=>{if(document.querySelector('#modal.show form'))return toast('Chiudi o salva il modulo prima di cambiare pagina.');page='tscNotes';render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;};
- else if(b.hasAttribute('data-tsc-note-new'))action=()=>edit();
- else if(b.hasAttribute('data-tsc-note-view'))action=()=>view(b.getAttribute('data-tsc-note-view'));
- else if(b.hasAttribute('data-tsc-note-edit'))action=()=>edit(b.getAttribute('data-tsc-note-edit'));
- if(action){event.preventDefault();event.stopImmediatePropagation();action();}
-},true);
-const main=document.querySelector('main');if(main)new MutationObserver(mount).observe(main,{childList:true,subtree:true});
-window.addEventListener('load',mount);mount();
-})();
-</script><style>
-.tsc-notes-list{padding:14px;display:grid;gap:12px}
-.tsc-note-card{display:block;width:100%;text-align:left;border:1px solid #cbd3df;border-left:5px solid #6554d9;border-radius:10px;background:#f1effb;color:#273247;padding:14px;cursor:pointer;font:inherit}
-.tsc-note-card b,.tsc-note-card small,.tsc-note-card span{display:block}
-.tsc-note-card small{color:#64738a;margin:5px 0}
-.tsc-note-card span{white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.tsc-note-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-family:inherit}
-#tscNoteForm textarea{width:100%;min-height:160px;resize:vertical;font:inherit}
-@media(max-width:800px){.tsc-note-card{font-size:16px}.tsc-notes-list{padding:12px}#tscNoteForm input,#tscNoteForm textarea{font-size:16px}}
-</style>
-<script>
-/* Note generali indipendenti dai turni. Non implementa l'invio push. */
-(()=>{
-'use strict';if(window.tscGeneralNotes)return;window.tscGeneralNotes=true;
-const notes=()=>Array.isArray(db.generalNotes)?db.generalNotes:[];
-function mount(){const nav=document.getElementById('nav');if(!nav||document.getElementById('tscNotesMenuButton'))return;const b=document.createElement('button');b.type='button';b.id='tscNotesMenuButton';b.dataset.page='tscNotes';b.textContent='Note';nav.append(b);}
-function draw(){
- const title=document.getElementById('title');if(title)title.textContent='Note e comunicazioni';
- document.getElementById('calendarControls')?.classList.add('hidden');
- document.querySelectorAll('#nav button[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page==='tscNotes');if(b.dataset.page==='tscNotes')b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
- const list=notes().slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.updatedAt||'').localeCompare(a.updatedAt||''));
- document.getElementById('content').innerHTML='<div class="tsc-notes-list">'+(unlocked?'<div><button type="button" class="primary" data-tsc-note-new>＋ Nuova nota</button></div>':'<p class="note">Sblocca con PIN per inserire o modificare le note.</p>')+(list.length?list.map(n=>'<button type="button" class="tsc-note-card" data-tsc-note-view="'+esc(n.id)+'"><b>'+esc(n.title||'Nota')+'</b><small>'+esc(n.date||'')+'</small><span>'+esc(n.text||'')+'</span></button>').join(''):'<div class="empty">Nessuna nota inserita.</div>')+'</div>';
-}
-function view(id){const n=notes().find(x=>String(x.id)===String(id));if(!n)return;modal(n.title||'Nota','<p class="note">Data: '+esc(n.date||'')+'</p><div class="tsc-note-text">'+esc(n.text||'')+'</div><div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-tsc-note-edit="'+esc(n.id)+'">Modifica</button>':'')+'</div>');}
-function edit(id){
- if(!can())return;
- const old=notes().find(x=>String(x.id)===String(id)),n=old||{title:'',text:'',date:fmt(new Date())};
- modal(old?'Modifica nota':'Nuova nota','<form id="tscNoteForm"><div class="form"><label class="full">Titolo<input name="title" required maxlength="200" value="'+esc(n.title||'')+'"></label><label class="full">Data<input name="date" type="date" required value="'+esc(n.date||fmt(new Date()))+'"></label><label class="full">Testo della nota<textarea name="text" required maxlength="20000" rows="8">'+esc(n.text||'')+'</textarea></label></div><div class="actions">'+(old?'<button type="button" class="danger" id="tscDeleteNote">Elimina nota</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva nota</button></div></form>');
- const form=document.getElementById('tscNoteForm');
- form.onsubmit=event=>{
-  event.preventDefault();if(!unlocked)return;const f=new FormData(form),title=String(f.get('title')||'').trim(),text=String(f.get('text')||'').trim(),day=String(f.get('date')||'');if(!title||!text||!day)return toast('Completa titolo, data e testo.');
-  const now=new Date().toISOString(),entry={...(old||{}),id:old?old.id:uid(),title,text,date:day,createdAt:old?.createdAt||now,updatedAt:now};
-  const previous=db.generalNotes;db.generalNotes=old?notes().map(x=>x.id===old.id?entry:x):notes().concat(entry);
-  try{save();}catch(error){if(previous===undefined)delete db.generalNotes;else db.generalNotes=previous;console.error(error);toast('Salvataggio locale non riuscito. La nota non è stata salvata.');return;}
-  close();page='tscNotes';render();toast('Nota salvata sul dispositivo. Controlla lo stato del salvataggio online.');
- };
- const del=document.getElementById('tscDeleteNote');if(del)del.onclick=()=>{
-  if(!can()||!confirm('Eliminare la nota «'+old.title+'»?'))return;
-  const previous=db.generalNotes;db.generalNotes=notes().filter(x=>x.id!==old.id);
-  try{save();}catch(error){db.generalNotes=previous;console.error(error);toast('Eliminazione non salvata.');return;}
-  close();page='tscNotes';render();
- };
-}
-const previousRender=render;
-render=function(){const result=previousRender.apply(this,arguments);mount();if(page==='tscNotes')draw();return result;};
-document.addEventListener('click',event=>{
- if(!(event.target instanceof Element))return;const b=event.target.closest('button');if(!b)return;
- let action=null;
- if(b.id==='tscNotesMenuButton')action=()=>{if(document.querySelector('#modal.show form'))return toast('Chiudi o salva il modulo prima di cambiare pagina.');page='tscNotes';render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;};
- else if(b.hasAttribute('data-tsc-note-new'))action=()=>edit();
- else if(b.hasAttribute('data-tsc-note-view'))action=()=>view(b.getAttribute('data-tsc-note-view'));
- else if(b.hasAttribute('data-tsc-note-edit'))action=()=>edit(b.getAttribute('data-tsc-note-edit'));
- if(action){event.preventDefault();event.stopImmediatePropagation();action();}
-},true);
-const main=document.querySelector('main');if(main)new MutationObserver(mount).observe(main,{childList:true,subtree:true});
-window.addEventListener('load',mount);mount();
-})();
-</script>
 <style>
 .tsc-notes-list{padding:14px;display:grid;gap:12px}
 .tsc-note-card{display:block;width:100%;text-align:left;border:1px solid #cbd3df;border-left:5px solid #6554d9;border-radius:10px;background:#f1effb;color:#273247;padding:14px;cursor:pointer;font:inherit}
@@ -1224,178 +1087,19 @@ window.addEventListener('load',mount);mount();
 #tscNoteForm textarea{width:100%;min-height:160px;resize:vertical;font:inherit}
 @media(max-width:800px){.tsc-note-card{font-size:16px}.tsc-notes-list{padding:12px}#tscNoteForm input,#tscNoteForm textarea{font-size:16px}}
 </style>
-<script>
-/* Note generali indipendenti dai turni. Non implementa l'invio push. */
-(()=>{
-'use strict';if(window.tscGeneralNotes)return;window.tscGeneralNotes=true;
-const notes=()=>Array.isArray(db.generalNotes)?db.generalNotes:[];
-function mount(){const nav=document.getElementById('nav');if(!nav||document.getElementById('tscNotesMenuButton'))return;const b=document.createElement('button');b.type='button';b.id='tscNotesMenuButton';b.dataset.page='tscNotes';b.textContent='Note';nav.append(b);}
-function draw(){
- const title=document.getElementById('title');if(title)title.textContent='Note e comunicazioni';
- document.getElementById('calendarControls')?.classList.add('hidden');
- document.querySelectorAll('#nav button[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page==='tscNotes');if(b.dataset.page==='tscNotes')b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
- const list=notes().slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.updatedAt||'').localeCompare(a.updatedAt||''));
- document.getElementById('content').innerHTML='<div class="tsc-notes-list">'+(unlocked?'<div><button type="button" class="primary" data-tsc-note-new>＋ Nuova nota</button></div>':'<p class="note">Sblocca con PIN per inserire o modificare le note.</p>')+(list.length?list.map(n=>'<button type="button" class="tsc-note-card" data-tsc-note-view="'+esc(n.id)+'"><b>'+esc(n.title||'Nota')+'</b><small>'+esc(n.date||'')+'</small><span>'+esc(n.text||'')+'</span></button>').join(''):'<div class="empty">Nessuna nota inserita.</div>')+'</div>';
-}
-function view(id){const n=notes().find(x=>String(x.id)===String(id));if(!n)return;modal(n.title||'Nota','<p class="note">Data: '+esc(n.date||'')+'</p><div class="tsc-note-text">'+esc(n.text||'')+'</div><div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-tsc-note-edit="'+esc(n.id)+'">Modifica</button>':'')+'</div>');}
-function edit(id){
- if(!can())return;
- const old=notes().find(x=>String(x.id)===String(id)),n=old||{title:'',text:'',date:fmt(new Date())};
- modal(old?'Modifica nota':'Nuova nota','<form id="tscNoteForm"><div class="form"><label class="full">Titolo<input name="title" required maxlength="200" value="'+esc(n.title||'')+'"></label><label class="full">Data<input name="date" type="date" required value="'+esc(n.date||fmt(new Date()))+'"></label><label class="full">Testo della nota<textarea name="text" required maxlength="20000" rows="8">'+esc(n.text||'')+'</textarea></label></div><div class="actions">'+(old?'<button type="button" class="danger" id="tscDeleteNote">Elimina nota</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva nota</button></div></form>');
- const form=document.getElementById('tscNoteForm');
- form.onsubmit=event=>{
-  event.preventDefault();if(!unlocked)return;const f=new FormData(form),title=String(f.get('title')||'').trim(),text=String(f.get('text')||'').trim(),day=String(f.get('date')||'');if(!title||!text||!day)return toast('Completa titolo, data e testo.');
-  const now=new Date().toISOString(),entry={...(old||{}),id:old?old.id:uid(),title,text,date:day,createdAt:old?.createdAt||now,updatedAt:now};
-  const previous=db.generalNotes;db.generalNotes=old?notes().map(x=>x.id===old.id?entry:x):notes().concat(entry);
-  try{save();}catch(error){if(previous===undefined)delete db.generalNotes;else db.generalNotes=previous;console.error(error);toast('Salvataggio locale non riuscito. La nota non è stata salvata.');return;}
-  close();page='tscNotes';render();toast('Nota salvata sul dispositivo. Controlla lo stato del salvataggio online.');
- };
- const del=document.getElementById('tscDeleteNote');if(del)del.onclick=()=>{
-  if(!can()||!confirm('Eliminare la nota «'+old.title+'»?'))return;
-  const previous=db.generalNotes;db.generalNotes=notes().filter(x=>x.id!==old.id);
-  try{save();}catch(error){db.generalNotes=previous;console.error(error);toast('Eliminazione non salvata.');return;}
-  close();page='tscNotes';render();
- };
-}
-const previousRender=render;
-render=function(){const result=previousRender.apply(this,arguments);mount();if(page==='tscNotes')draw();return result;};
-document.addEventListener('click',event=>{
- if(!(event.target instanceof Element))return;const b=event.target.closest('button');if(!b)return;
- let action=null;
- if(b.id==='tscNotesMenuButton')action=()=>{if(document.querySelector('#modal.show form'))return toast('Chiudi o salva il modulo prima di cambiare pagina.');page='tscNotes';render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;};
- else if(b.hasAttribute('data-tsc-note-new'))action=()=>edit();
- else if(b.hasAttribute('data-tsc-note-view'))action=()=>view(b.getAttribute('data-tsc-note-view'));
- else if(b.hasAttribute('data-tsc-note-edit'))action=()=>edit(b.getAttribute('data-tsc-note-edit'));
- if(action){event.preventDefault();event.stopImmediatePropagation();action();}
-},true);
-const main=document.querySelector('main');if(main)new MutationObserver(mount).observe(main,{childList:true,subtree:true});
-window.addEventListener('load',mount);mount();
-})();
-</script>
 
-
-</script><style>
-.tsc-photo-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
-.tsc-photo-previews>div{border:1px solid #cbd5e1;padding:8px;border-radius:8px;min-width:0}
-.tsc-photo-previews button{width:100%;min-height:44px}
-.tsc-extra-photos{display:flex;flex-wrap:wrap;gap:6px}
-.tsc-extra-photos .card-photo-thumb{width:90px!important;height:75px;object-fit:contain}
-.tsc-photo-details .card-photo-detail{width:100%;max-height:300px;object-fit:contain}
+<style>
+.tsc-notes-list{padding:14px;display:grid;gap:12px}
+.tsc-note-card{display:block;width:100%;text-align:left;border:1px solid #cbd3df;border-left:5px solid #6554d9;border-radius:10px;background:#f1effb;color:#273247;padding:14px;cursor:pointer;font:inherit}
+.tsc-note-card b,.tsc-note-card small,.tsc-note-card span{display:block}
+.tsc-note-card small{color:#64738a;margin:5px 0}
+.tsc-note-card span{white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tsc-note-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-family:inherit}
+#tscNoteForm textarea{width:100%;min-height:160px;resize:vertical;font:inherit}
+@media(max-width:800px){.tsc-note-card{font-size:16px}.tsc-notes-list{padding:12px}#tscNoteForm input,#tscNoteForm textarea{font-size:16px}}
 </style>
-<script>
-/* Foto per furgone e attrezzatura, colori card attrezzatura. */
-(()=>{
-'use strict';if(window.tscMultiPhotos)return;window.tscMultiPhotos=true;
-const palette={verde:['Verde','#ddf4ef','#087b6b','#05695e'],viola:['Viola','#f0e6ff','#7050b8','#44266f'],blu:['Blu','#e3efff','#2863ad','#153c70'],arancione:['Arancione','#fff0df','#ac590b','#713c0b'],rosso:['Rosso','#ffe5e7','#b13348','#7b2333'],giallo:['Giallo','#fff8d6','#9a7d0a','#6a5608'],grigio:['Grigio','#eef0f3','#5c6773','#3b444d'],rosa:['Rosa','#fce5f1','#a43472','#72234f']};
-const valid=(value,fallback)=>Object.prototype.hasOwnProperty.call(palette,value)?value:fallback;
-const safeImage=value=>typeof value==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
-function compress(file){return new Promise((resolve,reject)=>{
- if(file.size>20*1024*1024)return reject(Error('La foto supera 20 MB. Scegli un’immagine più piccola.'));
- const url=URL.createObjectURL(file),img=new Image();
- img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Formato immagine non leggibile dal browser. Prova una foto JPEG o PNG, oppure uno screenshot.'));};
- img.onload=()=>{try{
-  if(!img.naturalWidth||!img.naturalHeight)throw Error('Immagine non valida.');
-  const canvas=document.createElement('canvas');let max=1000,result='';
-  for(let pass=0;pass<5;pass++){
-   const scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
-   const ctx=canvas.getContext('2d');if(!ctx)throw Error('Elaborazione foto non disponibile.');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-   result=canvas.toDataURL('image/jpeg',0.72);if(result.length<=140000)break;max=Math.round(max*0.75);
-  }
-  if(!safeImage(result)||result.length>140000)throw Error('La foto è ancora troppo pesante. Scegline una più piccola.');resolve(result);
- }catch(error){reject(error);}finally{URL.revokeObjectURL(url);}};img.src=url;
-});}
-function imagesOf(entry){return [...new Set([...(Array.isArray(entry?.cardImages)?entry.cardImages:[]),entry?.cardImage].filter(safeImage))];}
-function paint(){
- for(const [name,key,fallback] of [['move','moves','verde'],['equip','equipmentEvents','arancione']]){
-  document.querySelectorAll('[data-view-'+name+'],[data-open-'+name+']').forEach(node=>{
-   const id=node.getAttribute('data-view-'+name)||node.getAttribute('data-open-'+name),entry=(db[key]||[]).find(x=>String(x.id)===id);if(!entry)return;
-   const card=node.closest('.card')||node.closest('.item');if(!card)return;
-   const color=palette[valid(entry.cardColor,fallback)];card.style.background=color[1];card.style.color=color[3];card.style.borderLeftColor=color[2];if(card.classList.contains('item'))card.style.borderLeftWidth='5px';
-   let image=card.querySelector('img.card-photo-thumb');
-   if(safeImage(entry.cardImage)){
-    if(!image){image=document.createElement('img');image.className='card-photo-thumb';image.alt='Foto allegata alla card';image.loading='lazy';(card.querySelector('.info')||card).append(image);}
-    if(image.getAttribute('src')!==entry.cardImage)image.src=entry.cardImage;
-   }else if(image)image.remove();
-   const extras=imagesOf(entry).slice(1);let gallery=card.querySelector('.tsc-extra-photos');
-   if(!extras.length){if(gallery)gallery.remove();}
-   else{if(!gallery){gallery=document.createElement('span');gallery.className='tsc-extra-photos';(card.querySelector('.info')||card).append(gallery);}
-    const existing=[...gallery.querySelectorAll('img')];
-    if(existing.length!==extras.length||existing.some((img,i)=>img.getAttribute('src')!==extras[i])){
-     gallery.replaceChildren();extras.forEach((src,i)=>{const img=document.createElement('img');img.className='card-photo-thumb';img.src=src;img.alt='Foto allegata '+(i+2);img.loading='lazy';gallery.append(img);});
-    }
-   }
 
-  });
- }
-}
-function attach(form,old,kind){
- const root=form.querySelector('.form');if(!root)return;
- const fallback=kind==='move'?'verde':'arancione';
- let field=form.querySelector('[name="cardColor"]');
- if(!field){const label=document.createElement('label');label.className='full';label.textContent='Colore della card';field=document.createElement('select');field.name='cardColor';for(const [key,value] of Object.entries(palette)){const option=document.createElement('option');option.value=key;option.textContent=value[0];field.append(option);}field.value=valid(old?.cardColor,fallback);label.append(field);root.append(label);const sample=document.createElement('div');sample.className='full card-color-sample';sample.textContent='Anteprima colore';const update=()=>{const c=palette[valid(field.value,fallback)];sample.style.background=c[1];sample.style.borderLeftColor=c[2];sample.style.color=c[3];};field.addEventListener('change',update);root.append(sample);update();}
- form.querySelectorAll('.card-photo-editor').forEach(el=>el.remove());
- let photos=imagesOf(old),busy=false;
- const editor=document.createElement('fieldset');editor.className='full card-photo-editor';
- const legend=document.createElement('legend');legend.textContent='Foto della card (selezione multipla)';editor.append(legend);
- const label=document.createElement('label');label.textContent='Aggiungi una o più immagini';
- const input=document.createElement('input');input.type='file';input.accept='image/*';input.multiple=true;label.append(input);editor.append(label);
- const previews=document.createElement('div');previews.className='tsc-photo-previews';editor.append(previews);
- const note=document.createElement('small');note.textContent='Le foto vengono ridotte. Aggiunte e rimozioni si confermano con Salva.';editor.append(note);root.append(editor);
- const submit=form.querySelector('button.primary[type="submit"],button.primary:not([type])');
- function update(){previews.replaceChildren();photos.forEach((src,index)=>{
-  const tile=document.createElement('div'),image=document.createElement('img');image.className='card-photo-detail';image.src=src;image.alt='Foto '+(index+1);
-  const remove=document.createElement('button');remove.type='button';remove.textContent='Rimuovi foto '+(index+1);remove.disabled=busy;
-  remove.onclick=()=>{if(busy||!unlocked)return;photos.splice(index,1);update();note.textContent='Rimozione da confermare con Salva.';};tile.append(image,remove);previews.append(tile);
- });}
- input.onchange=async()=>{
-  const files=[...(input.files||[])];if(!files.length)return;
-  busy=true;input.disabled=true;const wasDisabled=submit?.disabled;if(submit)submit.disabled=true;update();
-  const added=[];
-  try{
-   for(let i=0;i<files.length;i++){note.textContent='Preparazione foto '+(i+1)+' di '+files.length+'…';added.push(await compress(files[i]));}
-   if(!form.isConnected)return;photos=[...new Set(photos.concat(added))];note.textContent='Foto pronte. Premi Salva per confermare.';
-  }catch(error){note.textContent=error.message+' Il gruppo selezionato non è stato aggiunto.';toast(note.textContent);}
-  finally{busy=false;input.value='';input.disabled=false;if(submit)submit.disabled=!!wasDisabled;update();}
- };update();
- form.onsubmit=event=>{
-  event.preventDefault();if(!unlocked||busy)return;
-  const f=new FormData(form),key=kind==='move'?'moves':'equipmentEvents';let entry;
-  if(kind==='move'){
-   entry={...(old||{}),id:old?old.id:uid(),vehicle:String(f.get('vehicle')||''),date:String(f.get('date')||''),start:String(f.get('start')||''),end:String(f.get('end')||''),from:String(f.get('from')||'').trim(),to:String(f.get('to')||'').trim(),driver:String(f.get('driver')||''),cargo:String(f.get('cargo')||'').trim(),status:String(f.get('status')||'In attesa'),notes:String(f.get('notes')||'')};
-   if(!entry.to||!entry.date||!entry.vehicle||!entry.start||!entry.end||entry.start===entry.end)return toast('Completa destinazione, data, furgone e orari.');
-  }else{
-   entry={...(old||{}),id:old?old.id:uid(),title:String(f.get('title')||'').trim(),date:String(f.get('date')||''),time:String(f.get('time')||'').trim(),notes:String(f.get('notes')||'').trim()};
-   if(!entry.title||!entry.date)return toast('Completa titolo e data.');
-  }
-  entry.cardColor=valid(f.get('cardColor'),fallback);entry.cardImages=photos.slice();if(photos.length)entry.cardImage=photos[0];else delete entry.cardImage;
-  const previous=db[key]||[],next=old?previous.map(x=>x.id===entry.id?entry:x):previous.concat(entry);
-  // Le foto non devono occupare tutto lo spazio del salvataggio locale.
-  const photoChars=['moves','equipmentEvents'].reduce((sum,k)=>sum+(k===key?next:(db[k]||[])).reduce((n,x)=>n+(typeof x.cardImage==='string'?x.cardImage.length:0)+(Array.isArray(x.cardImages)?x.cardImages.reduce((a,p)=>a+(typeof p==='string'?p.length:0),0):0),0),0);
-  if(photoChars>1500000)return toast('Limite foto del calendario raggiunto. Rimuovi alcune foto prima di aggiungerne altre.');
-  db[key]=next;
-  try{save();}catch(error){db[key]=previous;console.error(error);return toast('Salvataggio locale non riuscito. La card non è stata salvata: prova senza foto.');}
-  close();render();paint();
- };
-}
-const move=moveForm,equip=equipForm;
-moveForm=function(mid){move.apply(this,arguments);const form=document.getElementById('moveForm');if(form)attach(form,db.moves.find(x=>x.id===mid),'move');};
-equipForm=function(eid){equip.apply(this,arguments);const form=document.getElementById('equipForm');if(form)attach(form,(db.equipmentEvents||[]).find(x=>x.id===eid),'equip');};
-function detail(entry){
- const photos=imagesOf(entry),body=document.getElementById('modalBody');if(!body)return;
- body.querySelectorAll('.card-photo-detail').forEach(image=>{
-  const parent=image.parentElement;
-  if(parent?.children.length===2&&parent.firstElementChild?.tagName==='P'&&parent.firstElementChild.textContent==='Foto allegata')parent.remove();else image.remove();
- });
- if(!photos.length)return;const box=document.createElement('div');box.className='tsc-photo-details';
- const caption=document.createElement('p');caption.textContent='Foto allegate: '+photos.length;box.append(caption);
- photos.forEach((src,i)=>{const image=document.createElement('img');image.className='card-photo-detail';image.src=src;image.alt='Foto allegata '+(i+1)+' di '+photos.length;box.append(image);});
- const actions=body.querySelector('.actions');if(actions)actions.before(box);else body.append(box);
-}
-const viewMoveOriginal=viewMove,viewEquipOriginal=viewEquip;
-viewMove=function(id){viewMoveOriginal.apply(this,arguments);detail(db.moves.find(x=>x.id===id));};
-viewEquip=function(id){viewEquipOriginal.apply(this,arguments);detail((db.equipmentEvents||[]).find(x=>x.id===id));};
-const content=document.getElementById('content');if(content)new MutationObserver(paint).observe(content,{childList:true,subtree:true});paint();
-})();
+
 
 </script>
 </body>
@@ -1403,53 +1107,110 @@ const content=document.getElementById('content');if(content)new MutationObserver
 
 
 <style>
-#content .tsc-tech-toggle{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;text-align:left;background:transparent;color:inherit;border:0;padding:4px;font:inherit;white-space:normal;cursor:pointer}
+#content .tsc-tech-toggle{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;text-align:left;background:transparent;color:inherit;border:0;padding:5px;font:inherit;white-space:normal;cursor:pointer}
 #content .tsc-tech-arrow{color:#4f46e5}#content .tsc-tech-count{font-size:12px;color:#64748b;margin-left:auto}
-#content .tsc-tech-collapsed>.cell{display:none!important}#content .tsc-tech-collapsed>.label{grid-column:1/-1}
+#content .tsc-tech-collapsed>.cell{display:none!important}
+#content .tsc-tech-collapsed>.label{grid-column:1/-1!important}
 #content .tsc-tech-found>.label{background:#fff6d9!important;box-shadow:inset 4px 0 #d99000}
 #content .tsc-tech-toggle:focus-visible{outline:3px solid #4f46e5}
-@media(max-width:800px){#content .weekrow.tsc-tech-row{padding:10px 12px;min-height:0!important}#content .tsc-tech-row>.label{padding-bottom:4px}}
+.tsc-van-date{display:none}.tsc-clean-section{background:#e5f4f4!important;color:#175f64!important}
+.tsc-clean-card{background:#e5f4f4!important;color:#175f64!important;border-left:5px solid #25858c!important;white-space:normal;overflow-wrap:anywhere;text-align:left}
+.tsc-clean-card small{display:block;margin-top:5px}.tsc-clean-list{padding:14px;display:grid;gap:12px}.tsc-clean-notes{white-space:pre-wrap;overflow-wrap:anywhere}
+.tsc-photo-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}.tsc-photo-previews>div{border:1px solid #cbd5e1;padding:8px;border-radius:8px;min-width:0}.tsc-photo-previews button{width:100%;min-height:44px}
+.tsc-extra-photos{display:flex;flex-wrap:wrap;gap:6px}.tsc-extra-photos .card-photo-thumb{width:90px!important;height:75px;object-fit:contain}
+@media(max-width:800px){
+ #content .weekrow.tsc-tech-row{padding:10px 12px;min-height:0!important}#content .tsc-tech-row>.label{padding-bottom:4px}
+ #content .cell[data-cell-type="van"],#content .cell[data-cell-type="van"].mobile-off{display:block!important}
+ #content .cell[data-cell-type="van"]:not(:has([data-view-move],[data-open-move])){display:none!important}
+ #content .cell[data-cell-type="van"]>.tsc-van-date{display:block;font-size:14px;font-weight:700;padding:10px 0 5px;text-transform:capitalize}
+ #tscCleaningForm input,#tscCleaningForm textarea{font-size:16px}
+}
 </style>
 <script>
-/* Ordine esplicito entro la sola griglia: spettacoli, furgone, tecnici, attrezzatura. */
-(()=>{'use strict';const states=new Map();let queued=false;
+/* Gestione unica di ordine calendario, tendine tecnici e interventi pulizie. */
+(()=>{
+'use strict';if(window.tscCalendarUnifiedV3)return;window.tscCalendarUnifiedV3=true;
+const opened=new Map();let queued=false;
 const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-function orderGrid(root){
- const grid=root.querySelector('.grid');if(!grid)return;
- const rowFor=type=>grid.querySelector('.weekrow > .cell[data-cell-type="'+type+'"]')?.parentElement;
- const show=rowFor('show'),van=rowFor('van'),equip=rowFor('equip');
- if(!show||!van)return;
- const sectionFor=(row,kind)=>{
-  const before=row.previousElementSibling;
-  if(before?.classList.contains('section')&&((kind==='show'&&before.classList.contains('show'))||(kind==='equip'&&before.classList.contains('equip'))||(kind==='van'&&before.textContent.includes('FURGONE'))))return before;
-  return [...grid.children].find(el=>el.classList.contains('section')&&(kind==='show'?el.classList.contains('show'):kind==='equip'?el.classList.contains('equip'):el.textContent.includes('FURGONE')));
- };
- const showHead=sectionFor(show,'show'),vanHead=sectionFor(van,'van'),equipHead=equip&&sectionFor(equip,'equip');
- if(!showHead||!vanHead)return;
- const children=[...grid.children],tech=children.filter(el=>el.classList.contains('weekrow')&&el.querySelector(':scope > .cell[data-cell-type="tech"],:scope > .cell[data-cell-type="none"]'));
- const days=children.filter(el=>el.classList.contains('mobile-days')||el.classList.contains('weekhead'));
- const desired=[showHead,show,vanHead,van,...days,...tech,...(equipHead?[equipHead]:[]),...(equip?[equip]:[])];
- if(desired.some(el=>el.parentElement!==grid))return;
- const set=new Set(desired),existing=children.filter(el=>set.has(el));
- if(existing.some((el,i)=>el!==desired[i])){const anchor=document.createComment('ordine calendario');grid.insertBefore(anchor,existing[0]);desired.forEach(el=>grid.insertBefore(el,anchor));anchor.remove();}
+const cleaning=()=>Array.isArray(db.cleaningEvents)?db.cleaningEvents:[];
+const italian=v=>{const d=new Date(v+'T12:00:00');return Number.isNaN(d.getTime())?String(v||''):d.toLocaleDateString('it-IT');};
+function cleanCard(entry){return '<button type="button" class="card tsc-clean-card" data-clean-view="'+esc(entry.id)+'"><b>'+esc(entry.space)+'</b><div>'+esc(entry.place)+'</div><small>'+esc(italian(entry.startDate))+' – '+esc(italian(entry.endDate))+'</small></button>';}
+function mountMenu(){const nav=document.getElementById('nav');if(!nav||document.getElementById('tscCleaningMenu'))return;const b=document.createElement('button');b.type='button';b.id='tscCleaningMenu';b.dataset.page='cleaning';b.textContent='Pulizie';nav.append(b);}
+function drawCleaning(){
+ const title=document.getElementById('title');if(title)title.textContent='Pulizie';
+ document.getElementById('calendarControls')?.classList.add('hidden');document.getElementById('newShift')?.classList.add('hidden');
+ document.querySelectorAll('#nav button[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page==='cleaning');if(b.dataset.page==='cleaning')b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+ document.getElementById('content').innerHTML='<div class="tsc-clean-list">'+(unlocked?'<div><button type="button" class="primary" data-clean-new>＋ Nuovo intervento pulizie</button></div>':'<p class="note">Consultazione libera. Sblocca con PIN per inserire o modificare.</p>')+(cleaning().slice().sort((a,b)=>String(b.startDate).localeCompare(String(a.startDate))).map(cleanCard).join('')||'<div class="empty">Nessun intervento pulizie inserito.</div>')+'</div>';
 }
-function update(){if(page!=='calendar')return;const root=document.getElementById('content');if(!root)return;orderGrid(root);
-const tokens=norm(document.getElementById('search')?.value).split(/\s+/).filter(Boolean);
-const rows=[...root.querySelectorAll('.weekrow')].filter(r=>r.querySelector(':scope > .cell[data-cell-type="tech"]')),entries=[];
-for(const row of rows){const cell=row.querySelector(':scope > .cell[data-cell-type="tech"]'),label=row.querySelector(':scope > .label');if(!label)continue;
-const id=cell.dataset.cellId,tech=db.tech.find(t=>String(t.id)===String(id)),found=tokens.length>0&&tokens.every(t=>norm(tech?.name).includes(t));
-row.classList.add('tsc-tech-row');row.classList.toggle('tsc-tech-found',found);
-let button=label.querySelector('.tsc-tech-toggle');if(!button){button=document.createElement('button');button.type='button';button.className='tsc-tech-toggle';const arrow=document.createElement('span');arrow.className='tsc-tech-arrow';arrow.setAttribute('aria-hidden','true');button.append(arrow);while(label.firstChild)button.append(label.firstChild);const badge=document.createElement('span');badge.className='tsc-tech-count';button.append(badge);label.append(button);}
-const mobile=matchMedia('(max-width:800px)').matches,cells=[...row.querySelectorAll(':scope > .cell')].filter(c=>!mobile||!c.classList.contains('mobile-off'));
-const key=id+'|'+(mobile?cells.map(c=>c.dataset.cellDate).join(','):fmt(monday(date)));button.dataset.tscTechKey=key;
-const open=states.has(key)?states.get(key):found;row.classList.toggle('tsc-tech-collapsed',!open);button.setAttribute('aria-expanded',String(open));
-const arrow=button.querySelector('.tsc-tech-arrow'),symbol=open?'▾':'▸';if(arrow.textContent!==symbol)arrow.textContent=symbol;
-const n=cells.reduce((n,c)=>n+c.querySelectorAll('[data-view-shift],[data-open-shift]').length,0),text=n+' '+(n===1?'turno':'turni')+(mobile?'':' nella settimana'),badge=button.querySelector('.tsc-tech-count');if(badge.textContent!==text)badge.textContent=text;entries.push({row,found});}
-if(entries.length){const ordered=entries.filter(x=>x.found).concat(entries.filter(x=>!x.found)).map(x=>x.row),parent=ordered[0].parentElement;
-if(ordered.every(r=>r.parentElement===parent)){const current=[...parent.children].filter(r=>rows.includes(r));if(current.some((r,i)=>r!==ordered[i])){const anchor=document.createComment('tecnici');parent.insertBefore(anchor,current[0]);ordered.forEach(r=>parent.insertBefore(r,anchor));anchor.remove();}}}}
-function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;update();});}
-window.addEventListener('click',e=>{if(!(e.target instanceof Element))return;const b=e.target.closest('.tsc-tech-toggle');if(!b)return;e.preventDefault();e.stopImmediatePropagation();states.set(b.dataset.tscTechKey,b.getAttribute('aria-expanded')!=='true');update();},true);
-const old=render;render=function(){const result=old.apply(this,arguments);update();return result;};
-document.getElementById('search')?.addEventListener('input',()=>{states.clear();schedule();});
-const root=document.getElementById('content');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true});window.addEventListener('resize',schedule);window.addEventListener('load',schedule);update();})();
+function viewCleaning(id){const e=cleaning().find(x=>String(x.id)===String(id));if(!e)return;
+ modal('Pulizie','<div class="note"><p><b>Spazio:</b> '+esc(e.space)+'</p><p><b>Luogo:</b> '+esc(e.place)+'</p><p><b>Data di inizio:</b> '+esc(italian(e.startDate))+'</p><p><b>Data di fine:</b> '+esc(italian(e.endDate))+'</p><p><b>Note:</b></p><div class="tsc-clean-notes">'+esc(e.notes||'—')+'</div></div><div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-clean-edit="'+esc(e.id)+'">Modifica</button>':'')+'</div>');
+}
+function persistCleaning(next,done){const before=db.cleaningEvents;db.cleaningEvents=next;try{save();}catch(error){if(before===undefined)delete db.cleaningEvents;else db.cleaningEvents=before;console.error(error);toast('Salvataggio locale non riuscito. Il modulo resta aperto.');return;}close();render();toast(done+' Controlla lo stato del salvataggio online.');}
+function editCleaning(id){if(!can())return;
+ const old=cleaning().find(x=>String(x.id)===String(id)),today=fmt(date),entry=old||{space:'',place:'',notes:'',startDate:today,endDate:today};
+ const options=(typeof allSpaces==='function'?allSpaces():[]).map(v=>'<option value="'+esc(v)+'"></option>').join('');
+ modal(old?'Modifica pulizie':'Nuovo intervento pulizie','<form id="tscCleaningForm"><div class="form"><label class="full">Spazio<input name="space" required maxlength="250" list="tscCleaningSpaces" value="'+esc(entry.space)+'"><datalist id="tscCleaningSpaces">'+options+'</datalist></label><label class="full">Luogo<input name="place" required maxlength="250" value="'+esc(entry.place)+'"></label><label>Data di inizio<input type="date" name="startDate" required value="'+esc(entry.startDate)+'"></label><label>Data di fine<input type="date" name="endDate" required min="'+esc(entry.startDate)+'" value="'+esc(entry.endDate)+'"></label><label class="full">Note<textarea name="notes" rows="5" maxlength="20000">'+esc(entry.notes||'')+'</textarea></label></div><div class="actions">'+(old?'<button type="button" class="danger" data-clean-delete="'+esc(old.id)+'">Elimina</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva</button></div></form>');
+ const form=document.getElementById('tscCleaningForm'),start=form.elements.namedItem('startDate'),end=form.elements.namedItem('endDate');start.onchange=()=>{end.min=start.value;};
+ form.onsubmit=event=>{event.preventDefault();if(!unlocked||!form.reportValidity())return;const f=new FormData(form),e={...(old||{}),id:old?old.id:uid(),space:String(f.get('space')||'').trim(),place:String(f.get('place')||'').trim(),notes:String(f.get('notes')||'').trim(),startDate:String(f.get('startDate')||''),endDate:String(f.get('endDate')||'')};
+ if(!e.space||!e.place||!e.startDate||!e.endDate||e.endDate<e.startDate)return toast('Completa i campi: la fine non può precedere l’inizio.');
+ persistCleaning(old?cleaning().map(x=>x.id===old.id?e:x):cleaning().concat(e),'Intervento salvato.');};
+}
+function addCleaningRows(root){const grid=root.querySelector('.grid');if(!grid||grid.querySelector('.tsc-clean-row'))return;
+ const head=document.createElement('div');head.className='section tsc-clean-section';head.textContent='PULIZIE';
+ const row=document.createElement('div');row.className='weekrow tsc-clean-row';
+ row.innerHTML='<div class="label"><span class="number">🧹</span><div><b>Pulizie</b><small>Interventi per spazio e luogo</small>'+(unlocked?'<button type="button" data-clean-new>＋ Aggiungi</button>':'')+'</div></div>';
+ const q=norm(document.getElementById('search')?.value);
+ for(let i=0;i<7;i++){const day=fmt(plus(monday(date),i)),cell=document.createElement('div');cell.className='cell';cell.dataset.cellDate=day;cell.dataset.cellType='cleaning';cell.dataset.cellId='cleaning';
+ cell.classList.toggle('mobile-off',i!==giornoMobile);
+ cell.innerHTML=cleaning().filter(e=>e.startDate<=day&&e.endDate>=day&&(!q||norm([e.space,e.place,e.notes].join(' ')).includes(q))).map(cleanCard).join('');row.append(cell);}
+ grid.append(head,row);
+}
+function orderGrid(root){const grid=root.querySelector('.grid');if(!grid)return;
+ const children=[...grid.children];
+ const row=type=>children.find(el=>el.classList.contains('weekrow')&&el.querySelector(':scope > .cell[data-cell-type="'+type+'"]'));
+ const show=row('show'),van=row('van'),equip=row('equip'),clean=row('cleaning');if(!show||!van)return;
+ const section=kind=>children.find(el=>el.classList.contains('section')&&(kind==='show'?el.classList.contains('show'):kind==='equip'?el.classList.contains('equip'):kind==='clean'?el.classList.contains('tsc-clean-section'):el.textContent.includes('FURGONE')));
+ const tech=children.filter(el=>el.classList.contains('weekrow')&&el.querySelector(':scope > .cell[data-cell-type="tech"],:scope > .cell[data-cell-type="none"]'));
+ const days=root.querySelector('.mobile-days'),week=grid.querySelector('.weekhead');
+ const desired=[section('show'),show,section('van'),van,days,week,...tech,section('equip'),equip,section('clean'),clean].filter(Boolean);
+ const set=new Set(desired),current=[...grid.children].filter(el=>set.has(el));
+ if(desired.some((el,i)=>current[i]!==el)){const anchor=document.createComment('ordine');grid.insertBefore(anchor,grid.firstChild);desired.forEach(el=>grid.insertBefore(el,anchor));anchor.remove();}
+}
+function accordions(root){const tokens=norm(document.getElementById('search')?.value).split(/\s+/).filter(Boolean),mobile=matchMedia('(max-width:800px)').matches;
+ const entries=[];
+ for(const row of root.querySelectorAll('.weekrow')){const first=row.querySelector(':scope > .cell[data-cell-type="tech"]'),label=row.querySelector(':scope > .label');if(!first||!label)continue;
+ const id=first.dataset.cellId,t=db.tech.find(t=>String(t.id)===String(id)),found=tokens.length>0&&tokens.every(token=>norm(t?.name).includes(token));
+ let button=label.querySelector('.tsc-tech-toggle');if(!button){button=document.createElement('button');button.type='button';button.className='tsc-tech-toggle';const arrow=document.createElement('span');arrow.className='tsc-tech-arrow';arrow.setAttribute('aria-hidden','true');button.append(arrow);while(label.firstChild)button.append(label.firstChild);const badge=document.createElement('span');badge.className='tsc-tech-count';button.append(badge);label.append(button);}
+ const cells=[...row.querySelectorAll(':scope > .cell')],period=mobile?fmt(plus(monday(date),giornoMobile)):fmt(monday(date)),key=id+'|'+(mobile?'day:':'week:')+period;
+ button.dataset.techKey=key;const open=opened.has(key)?opened.get(key):found;
+ row.classList.add('tsc-tech-row');row.classList.toggle('tsc-tech-collapsed',!open);row.classList.toggle('tsc-tech-found',found);button.setAttribute('aria-expanded',String(open));
+ cells.forEach(c=>{if(!open)c.style.setProperty('display','none','important');else if(!mobile||!c.classList.contains('mobile-off'))c.style.setProperty('display','block','important');else c.style.setProperty('display','none','important');});
+ const arrow=button.querySelector('.tsc-tech-arrow'),symbol=open?'▾':'▸';if(arrow.textContent!==symbol)arrow.textContent=symbol;
+ const relevant=cells.filter(c=>!mobile||c.dataset.cellDate===period),n=relevant.reduce((n,c)=>n+c.querySelectorAll('[data-view-shift],[data-open-shift]').length,0),text=n+' '+(n===1?'turno':'turni')+(mobile?'':' nella settimana'),badge=button.querySelector('.tsc-tech-count');if(badge.textContent!==text)badge.textContent=text;entries.push({row,found});
+ }
+ if(entries.length){const desired=entries.filter(x=>x.found).concat(entries.filter(x=>!x.found)).map(x=>x.row),parent=desired[0].parentElement,current=[...parent.children].filter(el=>entries.some(x=>x.row===el));
+ if(current.some((r,i)=>r!==desired[i])){const anchor=document.createComment('tecnici');parent.insertBefore(anchor,current[0]);desired.forEach(el=>parent.insertBefore(el,anchor));anchor.remove();}}
+}
+function vanDates(root){root.querySelectorAll('.cell[data-cell-type="van"]').forEach(cell=>{if(!cell.querySelector('[data-view-move],[data-open-move]')||cell.querySelector('.tsc-van-date'))return;const el=document.createElement('div');el.className='tsc-van-date';const d=new Date(cell.dataset.cellDate+'T12:00:00');el.textContent=d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});cell.prepend(el);});}
+function refresh(){mountMenu();const menu=document.getElementById('mobileCompactMenu'),main=document.querySelector('main');if(menu&&main&&main.firstElementChild!==menu)main.prepend(menu);
+ if(page!=='calendar')return;const root=document.getElementById('content');if(!root)return;addCleaningRows(root);orderGrid(root);accordions(root);vanDates(root);
+}
+function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;refresh();});}
+window.addEventListener('click',event=>{
+ if(!(event.target instanceof Element))return;const b=event.target.closest('button');let action=null;
+ if(b?.classList.contains('tsc-tech-toggle'))action=()=>{opened.set(b.dataset.techKey,b.getAttribute('aria-expanded')!=='true');refresh();};
+ else if(b?.id==='tscCleaningMenu')action=()=>{if(document.querySelector('#modal.show form'))return toast('Salva o chiudi il modulo prima di cambiare pagina.');page='cleaning';render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;};
+ else if(b?.hasAttribute('data-clean-new'))action=()=>editCleaning();
+ else if(b?.hasAttribute('data-clean-view'))action=()=>viewCleaning(b.getAttribute('data-clean-view'));
+ else if(b?.hasAttribute('data-clean-edit'))action=()=>editCleaning(b.getAttribute('data-clean-edit'));
+ else if(b?.hasAttribute('data-clean-delete'))action=()=>{if(!can())return;const id=b.getAttribute('data-clean-delete');if(confirm('Eliminare questo intervento pulizie?'))persistCleaning(cleaning().filter(x=>String(x.id)!==id),'Intervento eliminato.');};
+ else if(event.target.closest('.cell[data-cell-type="cleaning"]'))action=()=>{};
+ if(action){event.preventDefault();event.stopImmediatePropagation();action();}
+},true);
+const previousRender=render;render=function(){const result=previousRender.apply(this,arguments);mountMenu();if(page==='cleaning')drawCleaning();else refresh();return result;};
+const previousDay=aggiornaVistaGiorno;aggiornaVistaGiorno=function(){const result=previousDay.apply(this,arguments);refresh();return result;};
+document.getElementById('search')?.addEventListener('input',()=>{opened.clear();schedule();});
+const root=document.getElementById('content');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true});
+window.addEventListener('resize',schedule);window.addEventListener('load',schedule);refresh();
+})();
 </script>
