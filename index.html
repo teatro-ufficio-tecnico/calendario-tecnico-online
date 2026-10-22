@@ -484,8 +484,7 @@ window.addEventListener('load',pulsanti);
  if(window.tscNotificationCardFix)return;
  window.tscNotificationCardFix=true;
  let pending=null,lastOpened='',timer=null;
- const initialURL=new URL(location.href);
- const navigation=performance.getEntriesByType('navigation')[0];
+ const initialURL=new URL(location.href),navigation=performance.getEntriesByType('navigation')[0];
  const initialEvent=navigation&&navigation.type==='reload'?null:initialURL.searchParams.get('evento');
  if(initialURL.searchParams.has('evento')){initialURL.searchParams.delete('evento');history.replaceState(history.state,'',initialURL.pathname+initialURL.search+initialURL.hash);}
 
@@ -1101,47 +1100,7 @@ window.addEventListener('load',mount);mount();
 })();
 </script>
 
-<script>
-/* Ricerca tecnici per nome o cognome: porta in primo piano le card dei tecnici trovati. */
-(()=>{
-'use strict';if(window.tscSearchTechnicians)return;window.tscSearchTechnicians=true;
-const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-function technicianName(t){return norm([t?.nome,t?.cognome,t?.name,t?.surname].filter(Boolean).join(' '));}
-function cardText(el){return norm(el.textContent);}
-function matches(card,q){
- const technicians=Array.isArray(db.tecnici)?db.tecnici:[];
- return technicians.some(t=>{const full=technicianName(t);return full&&(full.includes(q)||q.includes(full));});
-}
-function promote(q){
- q=norm(q);if(!q)return;
- document.querySelectorAll('.day-col,.calendar-day,.day,.giorno').forEach(day=>{
-  const cards=[...day.querySelectorAll('[class*="card"],[class*="shift"],[class*="turno"]')].filter(el=>el.parentElement===day);
-  if(cards.length<2)return;
-  const found=cards.filter(c=>matches(c,q));
-  if(!found.length)return;
-  found.reverse().forEach(c=>day.insertBefore(c,day.firstChild));
-  found.forEach(c=>{c.style.outline='3px solid #f59e0b';c.style.outlineOffset='2px';});
- });
-}
-function clearHighlights(){
- document.querySelectorAll('[style]').forEach(el=>{if(el.style.outline==='rgb(245, 158, 11) solid 3px'){el.style.outline='';el.style.outlineOffset='';}});
-}
-function bind(){
- const input=document.querySelector('#searchInput,input[type="search"],input[placeholder*="erca" i]');
- if(!input||input.dataset.tscTechSearch)return;
- input.dataset.tscTechSearch='1';
- let timer=null;
- input.addEventListener('input',()=>{
-  clearTimeout(timer);
-  timer=setTimeout(()=>{clearHighlights();const q=input.value.trim();if(q.length>=2)promote(q);},180);
- });
-}
-const previousRender=window.render;
-if(typeof previousRender==='function'){window.render=function(){const r=previousRender.apply(this,arguments);try{bind();}catch(e){console.error(e);}return r;};}
-document.addEventListener('DOMContentLoaded',bind);window.addEventListener('load',bind);
-new MutationObserver(()=>requestAnimationFrame(bind)).observe(document.body,{childList:true,subtree:true});
-})();
-</script><style>
+<style>
 .tsc-notes-list{padding:14px;display:grid;gap:12px}
 .tsc-note-card{display:block;width:100%;text-align:left;border:1px solid #cbd3df;border-left:5px solid #6554d9;border-radius:10px;background:#f1effb;color:#273247;padding:14px;cursor:pointer;font:inherit}
 .tsc-note-card b,.tsc-note-card small,.tsc-note-card span{display:block}
@@ -1314,48 +1273,84 @@ const main=document.querySelector('main');if(main)new MutationObserver(mount).ob
 window.addEventListener('load',mount);mount();
 })();
 </script>
-<script>
-/* Ricerca tecnici per nome o cognome: porta in primo piano le card dei tecnici trovati. */
-(()=>{
-'use strict';if(window.tscSearchTechnicians)return;window.tscSearchTechnicians=true;
-const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-function technicianName(t){return norm([t?.nome,t?.cognome,t?.name,t?.surname].filter(Boolean).join(' '));}
-function cardText(el){return norm(el.textContent);}
-function matches(card,q){
- const technicians=Array.isArray(db.tecnici)?db.tecnici:[];
- return technicians.some(t=>{const full=technicianName(t);return full&&(full.includes(q)||q.includes(full));});
-}
-function promote(q){
- q=norm(q);if(!q)return;
- document.querySelectorAll('.day-col,.calendar-day,.day,.giorno').forEach(day=>{
-  const cards=[...day.querySelectorAll('[class*="card"],[class*="shift"],[class*="turno"]')].filter(el=>el.parentElement===day);
-  if(cards.length<2)return;
-  const found=cards.filter(c=>matches(c,q));
-  if(!found.length)return;
-  found.reverse().forEach(c=>day.insertBefore(c,day.firstChild));
-  found.forEach(c=>{c.style.outline='3px solid #f59e0b';c.style.outlineOffset='2px';});
- });
-}
-function clearHighlights(){
- document.querySelectorAll('[style]').forEach(el=>{if(el.style.outline==='rgb(245, 158, 11) solid 3px'){el.style.outline='';el.style.outlineOffset='';}});
-}
-function bind(){
- const input=document.querySelector('#searchInput,input[type="search"],input[placeholder*="erca" i]');
- if(!input||input.dataset.tscTechSearch)return;
- input.dataset.tscTechSearch='1';
- let timer=null;
- input.addEventListener('input',()=>{
-  clearTimeout(timer);
-  timer=setTimeout(()=>{clearHighlights();const q=input.value.trim();if(q.length>=2)promote(q);},180);
- });
-}
-const previousRender=window.render;
-if(typeof previousRender==='function'){window.render=function(){const r=previousRender.apply(this,arguments);try{bind();}catch(e){console.error(e);}return r;};}
-document.addEventListener('DOMContentLoaded',bind);window.addEventListener('load',bind);
-new MutationObserver(()=>requestAnimationFrame(bind)).observe(document.body,{childList:true,subtree:true});
-})();
-</script>
+
 
 </script>
 </body>
 </html>
+
+
+<style>
+#content .tsc-tech-toggle{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;text-align:left;background:transparent;color:inherit;border:0;padding:4px;font:inherit;white-space:normal;cursor:pointer}
+#content .tsc-tech-toggle .tsc-tech-arrow{font-size:18px;color:#4f46e5;flex:0 0 auto}
+#content .tsc-tech-toggle .tsc-tech-count{font-size:12px;color:#64748b;margin-left:auto;flex:0 0 auto}
+#content .tsc-tech-collapsed>.cell{display:none!important}
+#content .tsc-tech-collapsed>.label{grid-column:1/-1}
+#content .tsc-tech-found>.label{background:#fff6d9!important;box-shadow:inset 4px 0 #d99000}
+#content .tsc-tech-toggle:focus-visible{outline:3px solid #4f46e5;outline-offset:2px}
+@media(max-width:800px){#content .weekrow.tsc-tech-row{padding:10px 12px;min-height:0!important}#content .tsc-tech-row>.label{padding-bottom:4px}#content .tsc-tech-toggle{font-size:16px}}
+</style>
+<script>
+/* Tendine tecnici: modifica solo la presentazione, non i dati dei turni. */
+(()=>{
+'use strict';
+const states=new Map();let queued=false;
+const normalize=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('it').trim();
+function update(){
+ if(page!=='calendar')return;
+ const root=document.getElementById('content');if(!root)return;
+ const q=normalize(document.getElementById('search')?.value),tokens=q.split(/\s+/).filter(Boolean);
+ const rows=[...root.querySelectorAll('.weekrow')].filter(row=>row.querySelector(':scope > .cell[data-cell-type="tech"]'));
+ const entries=[];
+ for(const row of rows){
+  const cell=row.querySelector(':scope > .cell[data-cell-type="tech"]'),label=row.querySelector(':scope > .label');
+  if(!label)continue;
+  const id=cell.dataset.cellId,tech=(db.tech||[]).find(t=>String(t.id)===String(id));
+  const found=tokens.length>0&&tokens.every(t=>normalize(tech?.name).includes(t));
+  row.classList.add('tsc-tech-row');row.classList.toggle('tsc-tech-found',found);
+  let button=label.querySelector('.tsc-tech-toggle');
+  if(!button){
+   button=document.createElement('button');button.type='button';button.className='tsc-tech-toggle';
+   const arrow=document.createElement('span');arrow.className='tsc-tech-arrow';arrow.setAttribute('aria-hidden','true');button.append(arrow);
+   while(label.firstChild)button.append(label.firstChild);
+   const count=document.createElement('span');count.className='tsc-tech-count';button.append(count);label.append(button);
+  }
+  const mobile=matchMedia('(max-width:800px)').matches;
+  const visibleCells=[...row.querySelectorAll(':scope > .cell')].filter(c=>!mobile||!c.classList.contains('mobile-off'));
+  const period=mobile?visibleCells.map(c=>c.dataset.cellDate).join(','):fmt(monday(date));
+  const key=id+'|'+period;
+  button.dataset.tscTechKey=key;
+  const open=states.has(key)?states.get(key):found;
+  row.classList.toggle('tsc-tech-collapsed',!open);button.setAttribute('aria-expanded',String(open));
+  const arrow=button.querySelector('.tsc-tech-arrow'),symbol=open?'▾':'▸';if(arrow.textContent!==symbol)arrow.textContent=symbol;
+  const count=visibleCells.reduce((n,c)=>n+c.querySelectorAll('[data-view-shift],[data-open-shift]').length,0);
+  const text=count+' '+(count===1?'turno':'turni')+(mobile?'':' nella settimana');
+  const badge=button.querySelector('.tsc-tech-count');if(badge.textContent!==text)badge.textContent=text;
+  entries.push({row,found});
+ }
+ if(entries.length){
+  const ordered=entries.filter(x=>x.found).concat(entries.filter(x=>!x.found)).map(x=>x.row);
+  const parent=ordered[0].parentElement;
+  if(ordered.every(row=>row.parentElement===parent)){
+   const current=[...parent.children].filter(el=>rows.includes(el));
+   if(current.some((el,i)=>el!==ordered[i])){
+    const anchor=document.createComment('tecnici');parent.insertBefore(anchor,current[0]);
+    ordered.forEach(row=>parent.insertBefore(row,anchor));anchor.remove();
+   }
+  }
+ }
+}
+function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;update();});}
+window.addEventListener('click',event=>{
+ if(!(event.target instanceof Element))return;
+ const button=event.target.closest('.tsc-tech-toggle');if(!button)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ states.set(button.dataset.tscTechKey,button.getAttribute('aria-expanded')!=='true');update();
+},true);
+const previousRender=render;render=function(){const result=previousRender.apply(this,arguments);update();return result;};
+const search=document.getElementById('search');
+search?.addEventListener('input',()=>{states.clear();schedule();});
+const root=document.getElementById('content');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true});
+window.addEventListener('resize',schedule);window.addEventListener('load',schedule);update();
+})();
+</script>
