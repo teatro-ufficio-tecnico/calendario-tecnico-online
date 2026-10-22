@@ -405,6 +405,8 @@ window.addEventListener('load',pulsanti);
  const menu=document.createElement('details');menu.id='mobileCompactMenu';
  const summary=document.createElement('summary');summary.textContent='Menu e strumenti';menu.append(summary);
  const panel=document.createElement('div');menu.append(panel);main.prepend(menu);
+ const keepMenuFirst=()=>{if(main.firstElementChild!==menu)main.prepend(menu);};
+ new MutationObserver(keepMenuFirst).observe(main,{childList:true});
  const sections={};
  for(const [key,title] of [['nav','Sezioni'],['access','Accesso e sincronizzazione'],['notifications','Notifiche'],['documents','PDF settimana'],['filters','Ricerca e filtri']]){
   const section=document.createElement('section'),h=document.createElement('h3');h.textContent=title;section.append(h);const body=document.createElement('div');if(key==='documents')body.className='mobile-documents';section.append(body);panel.append(section);sections[key]={section,body};
@@ -482,15 +484,10 @@ window.addEventListener('load',pulsanti);
  if(window.tscNotificationCardFix)return;
  window.tscNotificationCardFix=true;
  let pending=null,lastOpened='',timer=null;
- // Consume notification links once; refreshing must not replay them.
  const initialURL=new URL(location.href);
  const navigation=performance.getEntriesByType('navigation')[0];
- const isReload=navigation&&navigation.type==='reload';
- const initialEvent=isReload?null:initialURL.searchParams.get('evento');
- if(initialURL.searchParams.has('evento')){
-  initialURL.searchParams.delete('evento');
-  history.replaceState(history.state,'',initialURL.pathname+initialURL.search+initialURL.hash);
- }
+ const initialEvent=navigation&&navigation.type==='reload'?null:initialURL.searchParams.get('evento');
+ if(initialURL.searchParams.has('evento')){initialURL.searchParams.delete('evento');history.replaceState(history.state,'',initialURL.pathname+initialURL.search+initialURL.hash);}
 
  function eventFromURL(value){try{const url=new URL(value,location.href);return url.origin===location.origin?url.searchParams.get('evento'):null;}catch{return null;}}
  function requestOpen(id,force=false){
@@ -518,7 +515,7 @@ window.addEventListener('load',pulsanti);
  if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{
   const data=event.data;if(!data||typeof data!=='object')return;
   const id=data.evento||eventFromURL(data.url||data.href||'');
-  if(id){const clean=new URL(location.href);clean.searchParams.delete('evento');history.replaceState(history.state,'',clean.pathname+clean.search+clean.hash);requestOpen(id,true);}
+  if(id)requestOpen(id,true);
  });
 })();
 </script>
@@ -814,8 +811,7 @@ if(active())render();
     alert('Ci sono problemi di salvataggio o connessione. Non ricaricare prima di aver salvato online o esportato un backup.');return;
    }
    if(!confirm('Ricaricare il calendario? Le modifiche non salvate potrebbero andare perse.'))return;
-   const clean=new URL(location.href);clean.searchParams.delete('evento');
-   history.replaceState(history.state,'',clean.pathname+clean.search+clean.hash);
+   const clean=new URL(location.href);clean.searchParams.delete('evento');history.replaceState(history.state,'',clean.pathname+clean.search+clean.hash);
    window.location.reload();
   };
   const today=document.getElementById('today');if(today&&today.parentNode===bar)today.after(button);else bar.append(button);
@@ -1104,23 +1100,7 @@ const main=document.querySelector('main');if(main)new MutationObserver(mount).ob
 window.addEventListener('load',mount);mount();
 })();
 </script>
-<script>
-/* Sposta la striscia "Furgone: movimenti" sopra la striscia "Spettacoli in programma". */
-(()=>{
-'use strict';if(window.tscFurgoneSopra)return;window.tscFurgoneSopra=true;
-function norm(el){return (el.textContent||'').replace(/\s+/g,' ').toUpperCase();}
-function findRow(text){return [...document.querySelectorAll('#content > *, #calendar > *, main > *')].find(el=>norm(el).includes(text));}
-function reorder(){
- const furgone=findRow('FURGONE'),spettacoli=findRow('SPETTACOLI');
- if(!furgone||!spettacoli||furgone===spettacoli||furgone.nextElementSibling===spettacoli)return;
- spettacoli.parentNode.insertBefore(furgone,spettacoli);
-}
-const previousRender=window.render;
-if(typeof previousRender==='function'){window.render=function(){const r=previousRender.apply(this,arguments);try{reorder();}catch(e){console.error(e);}return r;};}
-document.addEventListener('DOMContentLoaded',reorder);window.addEventListener('load',reorder);
-new MutationObserver(()=>requestAnimationFrame(reorder)).observe(document.body,{childList:true,subtree:true});
-})();
-</script>
+
 <script>
 /* Ricerca tecnici per nome o cognome: porta in primo piano le card dei tecnici trovati. */
 (()=>{
@@ -1375,24 +1355,7 @@ document.addEventListener('DOMContentLoaded',bind);window.addEventListener('load
 new MutationObserver(()=>requestAnimationFrame(bind)).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
-<script>
-/* Assicura che la striscia "Furgone: movimenti" sia SOTTO "Spettacoli in programma". */
-(()=>{
-'use strict';if(window.tscFurgoneSotto)return;window.tscFurgoneSotto=true;
-function norm(el){return (el.textContent||'').replace(/\s+/g,' ').toUpperCase();}
-function findRow(text){return [...document.querySelectorAll('#content > *, #calendar > *, main > *')].find(el=>norm(el).includes(text));}
-function reorder(){
- const furgone=findRow('FURGONE'),spettacoli=findRow('SPETTACOLI');
- if(!furgone||!spettacoli||furgone===spettacoli)return;
- if(furgone.previousElementSibling===spettacoli)return;
- spettacoli.parentNode.insertBefore(furgone,spettacoli.nextSibling);
-}
-const previousRender=window.render;
-if(typeof previousRender==='function'){window.render=function(){const r=previousRender.apply(this,arguments);try{reorder();}catch(e){console.error(e);}return r;};}
-document.addEventListener('DOMContentLoaded',reorder);window.addEventListener('load',reorder);
-new MutationObserver(()=>requestAnimationFrame(reorder)).observe(document.body,{childList:true,subtree:true});
-})();
-</script>
+
 </script>
 </body>
 </html>
