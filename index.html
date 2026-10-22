@@ -1177,6 +1177,42 @@ const main=document.querySelector('main');if(main)new MutationObserver(schedule)
 window.addEventListener('load',mount);document.addEventListener('visibilitychange',()=>{if(!document.hidden)mount();});setInterval(mount,60000);
 if(page==='tscNotes')archive();mount();
 })();
+</script><style>
+/* Il furgone torna a seguire esclusivamente la giornata selezionata su mobile. */
+@media(max-width:800px){
+ body #content .weekrow .cell[data-cell-type="van"].tsc-van-day-hidden,
+ body #content .weekrow .cell[data-cell-type="van"].mobile-off{display:none!important}
+ body #content .weekrow .cell[data-cell-type="van"]:not(.mobile-off):not(.tsc-van-day-hidden){display:block!important}
+ body #content .cell[data-cell-type="van"]>.tsc-van-date{display:none!important}
+}
+</style>
+<script>
+(()=>{
+'use strict';if(window.tscVanSelectedDayV1)return;window.tscVanSelectedDayV1=true;
+let queued=false;
+function apply(){
+ const root=document.getElementById('content');if(!root)return;
+ const mobile=matchMedia('(max-width:800px)').matches;
+ const selected=root.querySelector('.mobile-days button.selected[data-day]');
+ const dayIndex=selected?Number(selected.dataset.day):(typeof giornoMobile==='number'?giornoMobile:0);
+ if(!Number.isInteger(dayIndex)||dayIndex<0||dayIndex>6)return;
+ root.querySelectorAll('.weekrow').forEach(row=>{
+  const cells=[...row.children].filter(el=>el.classList.contains('cell')&&el.dataset.cellType==='van');
+  cells.forEach((cell,index)=>{
+   const hidden=mobile&&index!==dayIndex;
+   cell.classList.toggle('mobile-off',hidden);
+   cell.classList.toggle('tsc-van-day-hidden',hidden);
+  });
+ });
+}
+function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply();});}
+const previousDay=aggiornaVistaGiorno;
+aggiornaVistaGiorno=function(){const result=previousDay.apply(this,arguments);apply();return result;};
+const previousRender=render;
+render=function(){const result=previousRender.apply(this,arguments);apply();return result;};
+const root=document.getElementById('content');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true});
+window.addEventListener('resize',schedule);window.addEventListener('load',apply);apply();
+})();
 </script>
 </body>
 </html>
