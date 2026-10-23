@@ -1310,7 +1310,16 @@ const previousRender=render;render=function(){const result=previousRender.apply(
 const input=document.getElementById('search');input?.addEventListener('input',()=>{limit=60;clearTimeout(inputTimer);inputTimer=setTimeout(()=>{render();paint();},180);});
 const root=document.getElementById('content');if(root)new MutationObserver(schedule).observe(root,{childList:true,subtree:true});window.addEventListener('load',schedule);schedule();
 })();
-</script></body>
+</script><style>
+/* Solo mobile: nasconde i tre filtri, senza toccare la ricerca o la vista PC. */
+@media (max-width:800px){
+ #filterSpace,
+ #filterRole,
+ #filterStatus{display:none!important}
+ #search{width:100%!important;min-width:0!important;box-sizing:border-box}
+}
+</style>
+</body>
 </html>
 
 
