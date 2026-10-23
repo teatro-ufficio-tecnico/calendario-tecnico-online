@@ -1318,7 +1318,101 @@ const root=document.getElementById('content');if(root)new MutationObserver(sched
  #filterStatus{display:none!important}
  #search{width:100%!important;min-width:0!important;box-sizing:border-box}
 }
-</style>
+</style><script>
+(() => {
+  'use strict';
+  if (window.tscNoticePushLinkV1) return;
+  window.tscNoticePushLinkV1 = true;
+
+  let pending = null;
+  let timer = null;
+
+  function noticeIdFromUrl(value) {
+    try {
+      const u = new URL(value, location.href);
+      if (u.origin !== location.origin) return null;
+      return u.searchParams.get('avviso');
+    } catch {
+      return null;
+    }
+  }
+
+  function cleanUrl() {
+    const u = new URL(location.href);
+    if (u.searchParams.has('avviso')) {
+      u.searchParams.delete('avviso');
+      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+    }
+  }
+
+  function requestNotice(id) {
+    if (!id) return;
+    cleanUrl();
+    clearTimeout(timer);
+    pending = { id: String(id), deadline: Date.now() + 20000 };
+    tryOpenNotice();
+  }
+
+  function tryOpenNotice() {
+    if (!pending) return;
+
+    if (typeof remoteReady === 'undefined' || !remoteReady) {
+      if (Date.now() < pending.deadline) {
+        timer = setTimeout(tryOpenNotice, 300);
+        return;
+      }
+      pending = null;
+      if (typeof toast === 'function') toast('Avviso non aperto: sincronizzazione online non completata.');
+      return;
+    }
+
+    if (document.querySelector('#modal.show form')) {
+      pending = null;
+      if (typeof toast === 'function') toast('Salva o chiudi il modulo e apri l’avviso dalla bacheca.');
+      return;
+    }
+
+    const id = pending.id;
+    pending = null;
+
+    const notes = Array.isArray(db.generalNotes) ? db.generalNotes : [];
+    const notice = notes.find(item => String(item.id) === id);
+
+    if (!notice) {
+      if (typeof toast === 'function') toast('L’avviso non è più disponibile.');
+      return;
+    }
+
+    modal(
+      notice.title || 'Avviso',
+      '<p class="note">' + esc(notice.date || '') + '</p>' +
+      '<div style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6">' +
+      esc(notice.text || '') +
+      '</div>' +
+      '<div class="actions"><button type="button" class="close">Chiudi</button></div>'
+    );
+  }
+
+  const initialId = noticeIdFromUrl(location.href);
+  const navigation = performance.getEntriesByType('navigation')[0];
+  cleanUrl();
+
+  if (initialId && navigation?.type !== 'reload') requestNotice(initialId);
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+      const id = noticeIdFromUrl(data.url || data.href || data.data?.url || '');
+      if (id) requestNotice(id);
+    });
+  }
+
+  window.addEventListener('popstate', () => {
+    requestNotice(noticeIdFromUrl(location.href));
+  });
+})();
+</script>
 </body>
 </html>
 
