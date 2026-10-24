@@ -1020,6 +1020,25 @@ img.card-photo-detail,img.card-photo-thumb{cursor:zoom-in}
 @media(max-width:800px){.tsc-note-card{font-size:16px}.tsc-notes-list{padding:12px}#tscNoteForm input,#tscNoteForm textarea{font-size:16px}}
 </style>
 <script>
+function tscNoteLinkUrl(value) {
+  if (typeof value !== 'string') return '';
+  const raw = value.trim();
+  if (!raw || raw.length > 4096 || /[\u0000-\u0020\u007f]/.test(raw) || !/^https?:\/\//i.test(raw)) return '';
+  try {
+    const url = new URL(raw);
+    if (!['https:', 'http:'].includes(url.protocol) || !url.hostname || url.username || url.password) return '';
+    return url.href;
+  } catch { return ''; }
+}
+function tscNoteLinkHtml(value) {
+  const url = tscNoteLinkUrl(value);
+  return url ? '<p class="tsc-note-link"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">🔗 Apri link</a></p>' : '';
+}
+</script>
+<style>
+.tsc-note-link{margin:12px 0;overflow-wrap:anywhere}.tsc-note-link a{display:inline-block;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;text-decoration:underline;min-height:24px}
+</style>
+<script>
 /* Note generali indipendenti dai turni. Non implementa l'invio push. */
 (()=>{
 'use strict';if(window.tscGeneralNotes)return;window.tscGeneralNotes=true;
@@ -1032,15 +1051,16 @@ function draw(){
  const list=notes().slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.updatedAt||'').localeCompare(a.updatedAt||''));
  document.getElementById('content').innerHTML='<div class="tsc-notes-list">'+(unlocked?'<div><button type="button" class="primary" data-tsc-note-new>＋ Nuova nota</button></div>':'<p class="note">Accesso editore · PIN 6 per inserire o modificare le note.</p>')+(list.length?list.map(n=>'<button type="button" class="tsc-note-card" data-tsc-note-view="'+esc(n.id)+'"><b>'+esc(n.title||'Nota')+'</b><small>'+esc(n.date||'')+'</small><span>'+esc(n.text||'')+'</span></button>').join(''):'<div class="empty">Nessuna nota inserita.</div>')+'</div>';
 }
-function view(id){const n=notes().find(x=>String(x.id)===String(id));if(!n)return;modal(n.title||'Nota','<p class="note">Data: '+esc(n.date||'')+'</p><div class="tsc-note-text">'+esc(n.text||'')+'</div><div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-tsc-note-edit="'+esc(n.id)+'">Modifica</button>':'')+'</div>');}
+function view(id){const n=notes().find(x=>String(x.id)===String(id));if(!n)return;modal(n.title||'Nota','<p class="note">Data: '+esc(n.date||'')+'</p><div class="tsc-note-text">'+esc(n.text||'')+'</div>'+tscNoteLinkHtml(n.link)+'<div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-tsc-note-edit="'+esc(n.id)+'">Modifica</button>':'')+'</div>');}
 function edit(id){
  if(!can())return;
  const old=notes().find(x=>String(x.id)===String(id)),n=old||{title:'',text:'',date:fmt(new Date())};
- modal(old?'Modifica nota':'Nuova nota','<form id="tscNoteForm"><div class="form"><label class="full">Titolo<input name="title" required maxlength="200" value="'+esc(n.title||'')+'"></label><label class="full">Data<input name="date" type="date" required value="'+esc(n.date||fmt(new Date()))+'"></label><label class="full">Testo della nota<textarea name="text" required maxlength="20000" rows="8">'+esc(n.text||'')+'</textarea></label></div><div class="actions">'+(old?'<button type="button" class="danger" id="tscDeleteNote">Elimina nota</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva nota</button></div></form>');
+ modal(old?'Modifica nota':'Nuova nota','<form id="tscNoteForm"><div class="form"><label class="full">Titolo<input name="title" required maxlength="200" value="'+esc(n.title||'')+'"></label><label class="full">Data<input name="date" type="date" required value="'+esc(n.date||fmt(new Date()))+'"></label><label class="full">Testo della nota<textarea name="text" required maxlength="20000" rows="8">'+esc(n.text||'')+'</textarea></label><label class="full">Link facoltativo<input name="link" type="url" maxlength="4096" placeholder="https://..." value="'+esc(n.link||'')+'"></label></div><div class="actions">'+(old?'<button type="button" class="danger" id="tscDeleteNote">Elimina nota</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva nota</button></div></form>');
  const form=document.getElementById('tscNoteForm');
  form.onsubmit=event=>{
   event.preventDefault();if(!unlocked)return;const f=new FormData(form),title=String(f.get('title')||'').trim(),text=String(f.get('text')||'').trim(),day=String(f.get('date')||'');if(!title||!text||!day)return toast('Completa titolo, data e testo.');
-  const now=new Date().toISOString(),entry={...(old||{}),id:old?old.id:uid(),title,text,date:day,createdAt:old?.createdAt||now,updatedAt:now};
+  const rawLink=String(f.get('link')||'').trim(),link=tscNoteLinkUrl(rawLink);if(rawLink&&!link)return toast('Inserisci un link completo http:// o https:// valido, senza spazi o credenziali.');
+  const now=new Date().toISOString(),entry={...(old||{}),id:old?old.id:uid(),title,text,link,date:day,createdAt:old?.createdAt||now,updatedAt:now};
   const previous=db.generalNotes;db.generalNotes=old?notes().map(x=>x.id===old.id?entry:x):notes().concat(entry);
   try{save();}catch(error){if(previous===undefined)delete db.generalNotes;else db.generalNotes=previous;console.error(error);toast('Salvataggio locale non riuscito. La nota non è stata salvata.');return;}
   close();page='tscNotes';render();toast('Nota salvata sul dispositivo. Controlla lo stato del salvataggio online.');
@@ -1133,7 +1153,7 @@ const ordered=list=>list.slice().sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinne
 const active=()=>ordered(notes().filter(n=>!n.expiresOn||n.expiresOn>=today()));
 const human=value=>{if(!value)return '';const d=new Date(value+'T12:00:00');return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString('it-IT');};
 let board=null,lastSignature='',timer=null;
-function noteCard(n){const expired=n.expiresOn&&n.expiresOn<today();return '<article class="tsc-notice-card'+(n.pinned?' tsc-notice-pinned':'')+'">'+(n.pinned?'<span class="tsc-notice-badge">📌 In evidenza</span>':'')+'<h3>'+esc(n.title||'Nota')+'</h3><p class="tsc-notice-preview">'+esc(n.text||'')+'</p>'+(n.expiresOn?'<small>'+(expired?'Scaduto il ':'Visibile fino al ')+esc(human(n.expiresOn))+'</small>':'')+'<div class="tsc-notice-actions"><button type="button" data-notice-view="'+esc(n.id)+'">Leggi tutto</button></div></article>';}
+function noteCard(n){const expired=n.expiresOn&&n.expiresOn<today();return '<article class="tsc-notice-card'+(n.pinned?' tsc-notice-pinned':'')+'">'+(n.pinned?'<span class="tsc-notice-badge">📌 In evidenza</span>':'')+'<h3>'+esc(n.title||'Nota')+'</h3><p class="tsc-notice-preview">'+esc(n.text||'')+'</p>'+(n.expiresOn?'<small>'+(expired?'Scaduto il ':'Visibile fino al ')+esc(human(n.expiresOn))+'</small>':'')+tscNoteLinkHtml(n.link)+'<div class="tsc-notice-actions"><button type="button" data-notice-view="'+esc(n.id)+'">Leggi tutto</button></div></article>';}
 function mount(){
  const nav=document.getElementById('nav');if(nav&&!document.getElementById('tscNotesMenuButton')){const b=document.createElement('button');b.id='tscNotesMenuButton';b.type='button';b.dataset.page='tscNotes';b.textContent='Note';nav.append(b);}
  const content=document.getElementById('content');if(!content)return;
@@ -1150,15 +1170,16 @@ function archive(){
  document.getElementById('content').innerHTML='<div class="tsc-notice-archive">'+(unlocked?'<div><button type="button" class="primary" data-notice-new>＋ Nuova nota</button></div>':'<p class="note">Lettura libera. Accesso editore · PIN 6 per inserire o modificare.</p>')+(notes().length?ordered(notes()).map(noteCard).join(''):'<p class="empty">Nessuna nota inserita.</p>')+'</div>';
 }
 function view(id){const n=notes().find(x=>String(x.id)===String(id));if(!n)return;
- modal(n.title||'Nota',(n.pinned?'<p>📌 In evidenza</p>':'')+'<p class="note">Data: '+esc(human(n.date))+(n.expiresOn?' · Scadenza: '+esc(human(n.expiresOn)):'')+'</p><div class="tsc-notice-text">'+esc(n.text||'')+'</div><div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-notice-edit="'+esc(n.id)+'">Modifica</button>':'')+'</div>');
+ modal(n.title||'Nota',(n.pinned?'<p>📌 In evidenza</p>':'')+'<p class="note">Data: '+esc(human(n.date))+(n.expiresOn?' · Scadenza: '+esc(human(n.expiresOn)):'')+'</p><div class="tsc-notice-text">'+esc(n.text||'')+'</div>'+tscNoteLinkHtml(n.link)+'<div class="actions"><button type="button" class="close">Chiudi</button>'+(unlocked?'<button type="button" class="primary" data-notice-edit="'+esc(n.id)+'">Modifica</button>':'')+'</div>');
 }
 function persist(next){const previous=db.generalNotes;db.generalNotes=next;try{save();}catch(error){if(previous===undefined)delete db.generalNotes;else db.generalNotes=previous;console.error(error);toast('Salvataggio locale non riuscito. Il modulo resta aperto.');return;}
  close();lastSignature='';render();toast('Note aggiornate sul dispositivo. Controlla lo stato del salvataggio online.');}
 function edit(id){if(!can())return;const old=notes().find(x=>String(x.id)===String(id)),n=old||{title:'',text:'',date:today(),pinned:false,expiresOn:''};
- modal(old?'Modifica nota':'Nuova nota','<form id="tscNoticeForm"><div class="form"><label class="full">Titolo<input name="title" required maxlength="200" value="'+esc(n.title||'')+'"></label><label class="full">Testo<textarea name="text" required rows="7" maxlength="20000">'+esc(n.text||'')+'</textarea></label><label>Data<input type="date" name="date" required value="'+esc(n.date||today())+'"></label><label>Scadenza facoltativa<input type="date" name="expiresOn" value="'+esc(n.expiresOn||'')+'"></label><label class="full tsc-notice-check"><input type="checkbox" name="pinned"'+(n.pinned?' checked':'')+'> Metti in evidenza</label><p class="full note">Senza scadenza l’avviso resta visibile. Dopo la scadenza resta consultabile in “Tutte le note”. La lettura non viene tracciata.</p></div><div class="actions">'+(old?'<button type="button" class="danger" data-notice-delete="'+esc(old.id)+'">Elimina nota</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva nota</button></div></form>');
+ modal(old?'Modifica nota':'Nuova nota','<form id="tscNoticeForm"><div class="form"><label class="full">Titolo<input name="title" required maxlength="200" value="'+esc(n.title||'')+'"></label><label class="full">Testo<textarea name="text" required rows="7" maxlength="20000">'+esc(n.text||'')+'</textarea></label><label class="full">Link facoltativo<input name="link" type="url" maxlength="4096" placeholder="https://..." value="'+esc(n.link||'')+'"></label><label>Data<input type="date" name="date" required value="'+esc(n.date||today())+'"></label><label>Scadenza facoltativa<input type="date" name="expiresOn" value="'+esc(n.expiresOn||'')+'"></label><label class="full tsc-notice-check"><input type="checkbox" name="pinned"'+(n.pinned?' checked':'')+'> Metti in evidenza</label><p class="full note">Senza scadenza l’avviso resta visibile. Dopo la scadenza resta consultabile in “Tutte le note”. La lettura non viene tracciata.</p></div><div class="actions">'+(old?'<button type="button" class="danger" data-notice-delete="'+esc(old.id)+'">Elimina nota</button>':'')+'<button type="button" class="close">Annulla</button><button type="submit" class="primary">Salva nota</button></div></form>');
  const form=document.getElementById('tscNoticeForm');form.onsubmit=event=>{event.preventDefault();if(!unlocked||!form.reportValidity())return;const f=new FormData(form),title=String(f.get('title')||'').trim(),text=String(f.get('text')||'').trim();if(!title||!text)return toast('Completa titolo e testo.');
+ const rawLink=String(f.get('link')||'').trim(),link=tscNoteLinkUrl(rawLink);if(rawLink&&!link)return toast('Inserisci un link completo http:// o https:// valido, senza spazi o credenziali.');
  const date=String(f.get('date')||today()),expiresOn=String(f.get('expiresOn')||'');if(expiresOn&&expiresOn<date)return toast('La scadenza non può precedere la data della nota.');
- const now=new Date().toISOString(),entry={...(old||{}),id:old?old.id:uid(),title,text,date,pinned:f.has('pinned'),expiresOn,createdAt:old?.createdAt||now,updatedAt:now};persist(old?notes().map(x=>x.id===old.id?entry:x):notes().concat(entry));};
+ const now=new Date().toISOString(),entry={...(old||{}),id:old?old.id:uid(),title,text,link,date,pinned:f.has('pinned'),expiresOn,createdAt:old?.createdAt||now,updatedAt:now};persist(old?notes().map(x=>x.id===old.id?entry:x):notes().concat(entry));};
 }
 function openArchive(){if(document.querySelector('#modal.show form'))return toast('Salva o chiudi il modulo prima di cambiare pagina.');page='tscNotes';render();const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;}
 window.addEventListener('click',event=>{
@@ -1390,6 +1411,7 @@ const root=document.getElementById('content');if(root)new MutationObserver(sched
       '<div style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6">' +
       esc(notice.text || '') +
       '</div>' +
+      tscNoteLinkHtml(notice.link) +
       '<div class="actions"><button type="button" class="close">Chiudi</button></div>'
     );
   }
