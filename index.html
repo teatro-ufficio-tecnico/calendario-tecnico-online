@@ -1412,204 +1412,8 @@ const root=document.getElementById('content');if(root)new MutationObserver(sched
     requestNotice(noticeIdFromUrl(location.href));
   });
 })();
-</script><script>
-(() => {
-  'use strict';
-
-  if (window.tscCalendarPushUiV1) return;
-  window.tscCalendarPushUiV1 = true;
-
-  const PUSH_ENDPOINT = https://ohmofthdkjkttdyjuxwv.supabase.co/rest/v1/;
-  const TOKEN_KEY = 'calendarPushToken';
-  const PAUSE_KEY = 'calendarNotificationsPaused';
-
-  let pendingNotice = null;
-  let noticeTimer = null;
-
-  function noticeIdFromUrl(value) {
-    try {
-      const u = new URL(value, location.href);
-      if (u.origin !== location.origin) return null;
-      return u.searchParams.get('avviso');
-    } catch {
-      return null;
-    }
-  }
-
-  function cleanNoticeUrl() {
-    const u = new URL(location.href);
-    if (u.searchParams.has('avviso')) {
-      u.searchParams.delete('avviso');
-      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
-    }
-  }
-
-  function requestNotice(id) {
-    if (!id) return;
-    cleanNoticeUrl();
-    clearTimeout(noticeTimer);
-    pendingNotice = { id: String(id), deadline: Date.now() + 20000 };
-    tryOpenNotice();
-  }
-
-  function tryOpenNotice() {
-    if (!pendingNotice) return;
-
-    if (typeof remoteReady === 'undefined' || !remoteReady) {
-      if (Date.now() < pendingNotice.deadline) {
-        noticeTimer = setTimeout(tryOpenNotice, 300);
-        return;
-      }
-      pendingNotice = null;
-      if (typeof toast === 'function') toast('Avviso non aperto: sincronizzazione online non completata.');
-      return;
-    }
-
-    if (document.querySelector('#modal.show form')) {
-      pendingNotice = null;
-      if (typeof toast === 'function') toast('Salva o chiudi il modulo e apri l’avviso dalla bacheca.');
-      return;
-    }
-
-    const id = pendingNotice.id;
-    pendingNotice = null;
-
-    const notes = Array.isArray(db.generalNotes) ? db.generalNotes : [];
-    const notice = notes.find(item => String(item.id) === id);
-
-    if (!notice) {
-      if (typeof toast === 'function') toast('L’avviso non è più disponibile.');
-      return;
-    }
-
-    modal(
-      notice.title || 'Avviso',
-      '<p class="note">' + esc(notice.date || '') + '</p>' +
-      '<div style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6">' +
-      esc(notice.text || '') +
-      '</div>' +
-      '<div class="actions"><button type="button" class="close">Chiudi</button></div>'
-    );
-  }
-
-  async function getPushSubscription() {
-    if (!('serviceWorker' in navigator)) return null;
-    const registration = await navigator.serviceWorker.ready;
-    return await registration.pushManager.getSubscription();
-  }
-
-  async function changeNotificationSubscription(action) {
-    const token = localStorage.getItem(TOKEN_KEY) || '';
-    if (!token) return false;
-
-    const subscription = await getPushSubscription();
-    if (!subscription) return false;
-
-    const response = await fetch(PUSH_ENDPOINT + '?action=' + action, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token,
-        subscription: {
-          endpoint: subscription.endpoint,
-          keys: subscription.toJSON().keys
-        }
-      })
-    });
-
-    return response.ok;
-  }
-
-  function updatePauseButton() {
-    const button = document.getElementById('notificationPauseButton');
-    if (!button) return;
-
-    const paused = localStorage.getItem(PAUSE_KEY) === '1';
-    button.textContent = paused ? 'Riattiva notifiche' : 'Sospendi notifiche';
-    button.setAttribute('aria-pressed', paused ? 'true' : 'false');
-  }
-
-  async function toggleNotifications() {
-    const button = document.getElementById('notificationPauseButton');
-    if (!button) return;
-
-    const paused = localStorage.getItem(PAUSE_KEY) === '1';
-    button.disabled = true;
-
-    try {
-      const ok = await changeNotificationSubscription(paused ? 'subscribe' : 'unsubscribe');
-
-      if (!ok) {
-        if (typeof toast === 'function') toast('Impossibile cambiare le notifiche.');
-        return;
-      }
-
-      localStorage.setItem(PAUSE_KEY, paused ? '0' : '1');
-      updatePauseButton();
-
-      if (typeof toast === 'function') {
-        toast(paused ? 'Notifiche riattivate.' : 'Notifiche sospese.');
-      }
-    } catch {
-      if (typeof toast === 'function') toast('Errore durante il cambio delle notifiche.');
-    } finally {
-      button.disabled = false;
-    }
-  }
-
-  function addPauseButton() {
-    if (document.getElementById('notificationPauseButton')) return;
-
-    const container = document.createElement('div');
-    container.style.cssText = 'display:flex;justify-content:center;padding:10px;';
-
-    const button = document.createElement('button');
-    button.id = 'notificationPauseButton';
-    button.type = 'button';
-    button.className = 'secondary';
-    button.addEventListener('click', toggleNotifications);
-
-    container.appendChild(button);
-    document.body.appendChild(container);
-
-    updatePauseButton();
-  }
-
-  function start() {
-    const initialNoticeId = noticeIdFromUrl(location.href);
-    const navigation = performance.getEntriesByType('navigation')[0];
-    cleanNoticeUrl();
-
-    if (initialNoticeId && navigation?.type !== 'reload') {
-      requestNotice(initialNoticeId);
-    }
-
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', event => {
-        const data = event.data;
-        if (!data || typeof data !== 'object') return;
-
-        const noticeId = noticeIdFromUrl(data.url || data.href || data.data?.url || '');
-        if (noticeId) requestNotice(noticeId);
-      });
-    }
-
-    window.addEventListener('popstate', () => {
-      requestNotice(noticeIdFromUrl(location.href));
-    });
-
-    addPauseButton();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
-})();
 </script>
-</body>
-</html>
+
 
 
 <style>
@@ -1720,3 +1524,104 @@ const root=document.getElementById('content');if(root)new MutationObserver(sched
 window.addEventListener('resize',schedule);window.addEventListener('load',schedule);refresh();
 })();
 </script>
+
+<script>
+(() => {
+  'use strict';
+  if (window.tscGlobalNotificationsV2) return;
+  window.tscGlobalNotificationsV2 = true;
+  const API = 'https://ohmofthdkjkttdyjuxwv.supabase.co/functions/v1/calendar-push';
+  function mount() {
+    const panel = document.createElement('section');
+    panel.id = 'tscGlobalNotifications';
+    panel.style.cssText = 'margin:12px 0;padding:14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#172033;';
+    const title = document.createElement('strong'); title.textContent = 'Notifiche per tutti gli iscritti';
+    const status = document.createElement('p'); status.textContent = 'Verifica dello stato sul server…';
+    status.setAttribute('role', 'status'); status.style.cssText = 'margin:8px 0;overflow-wrap:anywhere;';
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.disabled = true;
+    toggle.textContent = 'Attendere…'; toggle.style.cssText = 'min-height:44px;margin:4px;';
+    const refresh = document.createElement('button'); refresh.type = 'button'; refresh.textContent = 'Verifica stato';
+    refresh.style.cssText = 'min-height:44px;margin:4px;';
+    panel.append(title, status, toggle, refresh);
+    const dialog = document.createElement('dialog');
+    dialog.style.cssText = 'max-width:420px;width:calc(100% - 40px);box-sizing:border-box;padding:22px;border:1px solid #94a3b8;border-radius:12px;background:#fff;color:#172033;';
+    const form = document.createElement('form');
+    const description = document.createElement('p');
+    const label = document.createElement('label'); label.textContent = 'Password amministratore notifiche';
+    const input = document.createElement('input'); input.type = 'password'; input.required = true; input.minLength = 32;
+    input.autocomplete = 'off'; input.style.cssText = 'display:block;width:100%;box-sizing:border-box;margin:12px 0;font-size:16px;';
+    label.append(input);
+    const errorText = document.createElement('p'); errorText.setAttribute('role', 'status');
+    const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = 'Conferma';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Annulla';
+    cancel.style.marginLeft = '8px';
+    form.append(description, label, errorText, submit, cancel); dialog.append(form);
+    let paused = null, busy = false, desiredPause = null;
+    function showState(value) {
+      if (typeof value !== 'boolean') throw new Error('Stato ricevuto non valido.');
+      paused = value;
+      status.textContent = value ? 'SOSPESO per tutti — puoi caricare il calendario.' : 'ATTIVO per tutti gli iscritti.';
+      toggle.textContent = value ? 'Riattiva notifiche per tutti' : 'Sospendi notifiche per tutti';
+      toggle.disabled = false;
+    }
+    function unknown(message) {
+      paused = null; toggle.disabled = true; toggle.textContent = 'Stato da verificare'; status.textContent = message;
+    }
+    async function request(action, secret) {
+      const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetch(API + '?action=' + action, {
+          method: secret === undefined ? 'GET' : 'POST', cache: 'no-store', signal: controller.signal,
+          headers: secret === undefined ? {} : { 'x-calendar-secret': secret }
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.ok || typeof data.paused !== 'boolean') {
+          throw new Error(data?.error || 'Risposta non valida (' + response.status + '). Controlla la configurazione Supabase.');
+        }
+        return data;
+      } finally { clearTimeout(timer); }
+    }
+    async function check() {
+      if (busy || dialog.open) return;
+      busy = true; refresh.disabled = true; toggle.disabled = true;
+      try { showState((await request('pause-status')).paused); }
+      catch (e) { unknown('Stato non verificato: ' + (e.name === 'AbortError' ? 'connessione scaduta.' : e.message)); }
+      finally { busy = false; refresh.disabled = false; }
+    }
+    toggle.addEventListener('click', () => {
+      if (busy || paused === null) return;
+      desiredPause = !paused;
+      description.textContent = desiredPause
+        ? 'Sospendere i nuovi invii per tutti? I messaggi già partiti possono ancora arrivare.'
+        : 'Riattivare gli invii per tutti? Assicurati che il calendario sia stato salvato online.';
+      input.value = ''; errorText.textContent = ''; dialog.showModal(); input.focus();
+    });
+    cancel.addEventListener('click', () => { if (!busy) dialog.close(); });
+    dialog.addEventListener('cancel', e => { if (busy) e.preventDefault(); });
+    dialog.addEventListener('close', () => { input.value = ''; errorText.textContent = ''; desiredPause = null; });
+    form.addEventListener('submit', async event => {
+      event.preventDefault(); if (busy || desiredPause === null) return;
+      busy = true; submit.disabled = true; cancel.disabled = true; refresh.disabled = true; toggle.disabled = true;
+      const secret = input.value.trim(); input.value = '';
+      try {
+        const data = await request(desiredPause ? 'admin-pause' : 'admin-resume', secret);
+        showState(data.paused); dialog.close();
+      } catch (e) {
+        unknown('Operazione non confermata. Chiudi questa finestra e premi “Verifica stato”.');
+        errorText.textContent = e.name === 'AbortError' ? 'Tempo scaduto: il server potrebbe aver già applicato la modifica. Verifica lo stato.' : e.message;
+      } finally { busy = false; submit.disabled = false; cancel.disabled = false; refresh.disabled = false; }
+    });
+    refresh.addEventListener('click', check);
+    const header = document.querySelector('main .header');
+    if (header) header.after(panel); else (document.querySelector('main') || document.body).prepend(panel);
+    document.body.append(dialog);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    setInterval(() => { if (!document.hidden) check(); }, 30000);
+    check();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once:true });
+  else mount();
+})();
+</script>
+</body>
+</html>
