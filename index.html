@@ -1677,5 +1677,85 @@ window.addEventListener('resize',schedule);window.addEventListener('load',schedu
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once:true }); else mount();
 })();
 </script>
+
+<style>
+#tscNotificationHistory{min-width:0;max-height:70vh;overflow:auto}
+#tscNotificationHistory .nh-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+#tscNotificationHistory article{border:1px solid #cbd5e1;border-radius:10px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
+#tscNotificationHistory h3{margin:6px 0;font-size:16px}
+#tscNotificationHistory p{white-space:pre-wrap;margin:8px 0}
+#tscNotificationHistory .nh-meta{font-size:12px;color:#475569}
+#tscNotificationHistory a{display:inline-block;margin-top:8px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;text-decoration:underline}
+#tscNotificationHistory button{min-height:44px}
+</style>
+<script>
+(() => {
+  'use strict';
+  if (window.tscNotificationHistoryV1) return;
+  window.tscNotificationHistoryV1 = true;
+  const API = 'https://ohmofthdkjkttdyjuxwv.supabase.co/functions/v1/calendar-push';
+  const APP = 'https://teatro-ufficio-tecnico.github.io/calendario-tecnico-online/';
+  function safeTarget(value) {
+    try {
+      const url = new URL(value), base = new URL(APP);
+      return url.origin === base.origin && url.pathname === base.pathname && !url.username && !url.password ? url.href : '';
+    } catch { return ''; }
+  }
+  function dateLabel(value) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('it-IT');
+  }
+  function outcome(n) {
+    if (n.status === 'processing') return 'Invio avviato; esito finale non ancora disponibile.';
+    if (n.status === 'error') return 'Invio non completato per un errore del server.';
+    const sent = Math.max(0, Number(n.sent) || 0), failed = Math.max(0, Number(n.failed) || 0), expired = Math.max(0, Number(n.expired) || 0);
+    const prefix = n.paused_during_send ? 'Invio interrotto dalla pausa generale. ' : '';
+    if (!sent && !failed && !expired) return prefix + 'Nessun invio a dispositivi completato.';
+    return prefix + 'Invii accettati: ' + sent + ' · Non riusciti: ' + failed + ' · Iscrizioni scadute: ' + expired;
+  }
+  function card(n) {
+    const url = safeTarget(n.url);
+    return '<article><div class="nh-meta">'+esc(dateLabel(n.created_at))+' · '+(n.category === 'notice' ? 'Avviso' : 'Calendario')+'</div><h3>'+esc(String(n.title || 'Notifica'))+'</h3><p>'+esc(String(n.body || ''))+'</p><div class="nh-meta">'+esc(outcome(n))+'</div>'+(url ? '<a href="'+esc(url)+'">Apri contenuto collegato →</a>' : '')+'</article>';
+  }
+  function openHistory() {
+    if (document.querySelector('#modal.show form')) return toast('Salva o chiudi il modulo prima di aprire le notifiche.');
+    const menu = document.getElementById('mobileCompactMenu'); if (menu) menu.open = false;
+    modal('🔔 Storico notifiche', '<div id="tscNotificationHistory"><div class="nh-toolbar"><button type="button" data-nh-refresh>Aggiorna elenco</button></div><p class="note">Archivio condiviso delle notifiche elaborate dal server, dalla sua attivazione. Non è una conferma di consegna o lettura sul tuo dispositivo. Durante la sospensione generale non vengono aggiunti nuovi invii.</p><div data-nh-status role="status" aria-live="polite"></div><div data-nh-list></div><button type="button" data-nh-more hidden>Carica precedenti</button></div><div class="actions"><button type="button" class="close">Chiudi</button></div>');
+    const root = document.getElementById('tscNotificationHistory');
+    const list = root.querySelector('[data-nh-list]'), status = root.querySelector('[data-nh-status]'), more = root.querySelector('[data-nh-more]'), refresh = root.querySelector('[data-nh-refresh]');
+    let cursor = null, busy = false, started = false;
+    async function load(reset) {
+      if (busy || !root.isConnected) return;
+      if (!reset && started && !cursor) return;
+      busy = true; refresh.disabled = true; more.disabled = true; status.textContent = 'Caricamento notifiche…';
+      const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetch(API + '?action=history' + (!reset && cursor ? '&before=' + encodeURIComponent(cursor) : ''), { cache: 'no-store', signal: controller.signal });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.ok || !Array.isArray(data.items)) throw new Error('Archivio non disponibile: verifica la tabella e la nuova funzione calendar-push.');
+        if (!root.isConnected) return;
+        const fragment = data.items.map(card).join('');
+        if (reset) list.innerHTML = fragment; else list.insertAdjacentHTML('beforeend', fragment);
+        cursor = data.nextCursor || null; started = true; more.hidden = !cursor;
+        status.textContent = list.children.length ? list.children.length + ' notifiche caricate, dalla più recente.' : 'Nessuna notifica ancora registrata. Le notifiche precedenti all’attivazione non sono incluse.';
+      } catch (error) {
+        if (root.isConnected) status.textContent = error.name === 'AbortError' ? 'Connessione scaduta. Premi Aggiorna elenco per riprovare.' : (error.message || 'Connessione non riuscita. Riprova.');
+      } finally {
+        clearTimeout(timer); busy = false;
+        if (root.isConnected) { refresh.disabled = false; more.disabled = false; }
+      }
+    }
+    refresh.onclick = () => load(true); more.onclick = () => load(false); load(true);
+  }
+  function mount() {
+    const nav = document.getElementById('nav');
+    if (!nav || document.getElementById('tscHistoryMenuButton')) return;
+    const button = document.createElement('button'); button.type = 'button'; button.id = 'tscHistoryMenuButton'; button.textContent = '🔔 Notifiche'; button.onclick = openHistory; nav.append(button);
+  }
+  window.tscOpenNotificationHistory = openHistory;
+  mount(); window.addEventListener('load', mount);
+})();
+</script>
+
 </body>
 </html>
