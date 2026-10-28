@@ -1757,5 +1757,39 @@ window.addEventListener('resize',schedule);window.addEventListener('load',schedu
 })();
 </script>
 
+<style>
+#tscRefreshHistoryPair{display:inline-flex!important;align-items:center;gap:7px;flex:0 0 auto;white-space:nowrap}
+#calendarControls #tscHistoryBell{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;min-width:44px;min-height:44px;padding:8px!important;border:1px solid #b9c2ce;border-radius:8px;background:#e4e7ec;color:#243249;cursor:pointer;font-size:21px!important;line-height:1}
+#calendarControls #tscHistoryBell:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+</style>
+<script>
+(() => {
+  'use strict';
+  if(window.tscNotificationBellV1)return;
+  window.tscNotificationBellV1=true;
+  function mount(){
+    const reload=document.getElementById('calendarReloadButton');
+    if(!reload)return;
+    let pair=document.getElementById('tscRefreshHistoryPair');
+    if(!pair){
+      pair=document.createElement('span');pair.id='tscRefreshHistoryPair';
+      reload.before(pair);pair.append(reload);
+    }
+    let bell=document.getElementById('tscHistoryBell');
+    if(!bell){
+      bell=document.createElement('button');bell.type='button';bell.id='tscHistoryBell';
+      bell.textContent='🔔';bell.title='Storico notifiche';
+      bell.setAttribute('aria-label','Apri storico notifiche');
+      bell.onclick=()=>{if(typeof window.tscOpenNotificationHistory==='function')window.tscOpenNotificationHistory();};
+    }
+    if(reload.parentElement!==pair)pair.prepend(reload);
+    if(bell.parentElement!==pair||reload.nextElementSibling!==bell)reload.after(bell);
+  }
+  mount();window.addEventListener('load',mount);
+  const controls=document.getElementById('calendarControls');
+  if(controls)new MutationObserver(mount).observe(controls,{childList:true,subtree:true});
+})();
+</script>
+
 </body>
 </html>
