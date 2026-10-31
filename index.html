@@ -1628,6 +1628,23 @@ window.addEventListener('resize',schedule);window.addEventListener('load',schedu
       } finally { button.disabled = false; }
     };
   };
+  // PIN solo in memoria: ogni conteggio viene autorizzato dal server.
+  window.calendarEditorHoursRequest = async function (filters) {
+    if (!unlocked || !pinInMemory) throw new Error('Accedi come editor per vedere il conteggio.');
+    const requestGeneration = generation;
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch('https://ohmofthdkjkttdyjuxwv.supabase.co/functions/v1/calendar-hours', {
+        method:'POST', cache:'no-store', signal:controller.signal,
+        headers:{'Content-Type':'application/json','x-calendar-secret':pinInMemory},
+        body:JSON.stringify({from:filters.from,to:filters.to,statusFilter:filters.statusFilter})
+      });
+      const result = await response.json().catch(() => null);
+      if (!unlocked || !pinInMemory || generation !== requestGeneration) throw new Error('Accesso editor terminato.');
+      if (!response.ok || !result?.ok) throw new Error(result?.error || 'Funzione calendar-hours non disponibile. Controlla installazione e impostazione JWT.');
+      return result;
+    } finally { clearTimeout(timer); }
+  };
   window.calendarEditorPinInfo = function () {
     if (!unlocked) return window.calendarEditorAccess();
     tell('Per cambiare il PIN unico modifica PUSH_ADMIN_SECRET nei Secrets di Supabase. Deve avere 6 caratteri. Poi premi Blocca e accedi di nuovo.');
@@ -1788,6 +1805,93 @@ window.addEventListener('resize',schedule);window.addEventListener('load',schedu
   mount();window.addEventListener('load',mount);
   const controls=document.getElementById('calendarControls');
   if(controls)new MutationObserver(mount).observe(controls,{childList:true,subtree:true});
+})();
+</script>
+
+
+<style>
+#tscHoursRoot{max-height:72vh;overflow:auto;min-width:0}
+#tscHoursRoot .hours-filters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#tscHoursRoot label{display:grid;gap:5px;font-size:14px}
+#tscHoursRoot input,#tscHoursRoot select{width:100%;min-width:0;font-size:16px;min-height:44px;box-sizing:border-box}
+#tscHoursRoot button{min-height:44px}
+#tscHoursRoot .hours-total{margin:12px 0;padding:12px;background:#eef2f7;border-radius:8px}
+#tscHoursRoot details{border:1px solid #cbd5e1;border-radius:8px;margin:8px 0;overflow:hidden}
+#tscHoursRoot summary{cursor:pointer;padding:12px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+#tscHoursRoot summary span{overflow-wrap:anywhere}
+#tscHoursRoot .hours-detail{padding:0 12px 12px}
+#tscHoursRoot .hours-item{padding:10px 0;border-top:1px solid #e2e8f0;overflow-wrap:anywhere;font-size:14px}
+#tscHoursRoot .hours-alert{color:#92400e;background:#fffbeb;padding:8px;border-radius:6px;font-size:13px}
+#tscHoursRoot .hours-help{font-size:12px;line-height:1.5;color:#475569}
+@media(max-width:420px){#tscHoursRoot .hours-filters{grid-template-columns:1fr}}
+</style>
+<script>
+(() => {
+ 'use strict';
+ if(window.tscEditorHoursV1)return;window.tscEditorHoursV1=true;
+ const text=value=>esc(String(value??''));
+ function duration(minutes){const n=Math.max(0,Math.round(Number(minutes)||0));return Math.floor(n/60)+' h '+String(n%60).padStart(2,'0')+' min';}
+ function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+ function human(day){const p=String(day).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:String(day);}
+ function renderResult(data){
+  const warnings=data.warnings||{},rows=Array.isArray(data.rows)?data.rows:[];
+  let html='<div class="hours-total"><b>'+text(human(data.from))+' – '+text(human(data.to))+'</b><br>Totale ore-persona: '+text(duration(data.totalMinutes))+'<br><small>'+(data.statusFilter==='confirmed'?'Solo turni confermati':'Tutti gli stati dei turni')+' · Dati letti online</small></div>';
+  if(warnings.invalidSlots||warnings.invalidShifts)html+='<p class="hours-alert">Dati non validi esclusi: '+text(warnings.invalidSlots||0)+' fasce orarie e '+text(warnings.invalidShifts||0)+' date di turno. Controlla i turni prima di usare il totale.</p>';
+  if(!rows.length)return html+'<p>Nessun tecnico presente nel calendario online.</p>';
+  for(const row of rows){
+   html+='<details><summary><span>'+text(row.name)+'</span><b>'+text(duration(row.totalMinutes))+'</b></summary><div class="hours-detail"><p>'+text(row.shiftCount)+' turni con orario nel periodo.</p>';
+   if(row.overlapMinutes>0)html+='<p class="hours-alert">Sovrapposizioni: '+text(duration(row.overlapMinutes))+'. Questi minuti sono conteggiati una sola volta nel totale. Somma delle fasce: '+text(duration(row.rawMinutes))+'.</p>';
+   for(const item of Array.isArray(row.details)?row.details:[])html+='<div class="hours-item"><b>'+text(human(item.date))+' · '+text(item.title)+'</b><br>'+text((item.slots||[]).join(' · '))+'<br>'+text(item.space)+(item.status?' · '+text(item.status):'')+'<br>Somma fasce nel periodo: '+text(duration(item.minutes))+'</div>';
+   if(!row.shiftCount)html+='<p class="hours-help">Nessun turno con orario conteggiabile nel periodo e nello stato selezionati.</p>';
+   html+='</div></details>';
+  }
+  return html;
+ }
+ function protect(){
+  const button=document.getElementById('tscHoursMenuButton');
+  if(button){button.hidden=!unlocked;button.style.display=unlocked?'':'none';}
+  if(!unlocked&&document.getElementById('tscHoursRoot')){document.getElementById('tscHoursRoot').replaceChildren();close();}
+ }
+ function open(){
+  if(!unlocked)return toast('Accedi come editor per vedere il conteggio ore.');
+  if(document.querySelector('#modal.show form'))return toast('Salva o chiudi il modulo aperto prima del conteggio.');
+  const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;
+  modal('⏱ Conteggio ore · Solo editor','<div id="tscHoursRoot"><form id="tscHoursFilters"><div class="hours-filters"><label>Periodo<select name="preset"><option value="month">Mese visualizzato</option><option value="week">Settimana visualizzata</option><option value="custom">Date personalizzate</option></select></label><label>Stato turni<select name="statusFilter"><option value="all">Tutti gli stati</option><option value="confirmed">Solo confermati</option></select></label><label>Dal<input type="date" name="from" required></label><label>Al<input type="date" name="to" required></label></div><p><button type="submit" class="primary">Calcola ore online</button></p></form><p class="hours-help">Ore programmate, non presenze rilevate. Riposi, ferie, Festivo e turni senza orario sono esclusi. Le pause non inserite tra le fasce non vengono sottratte. I turni notturni sono ripartiti sui giorni effettivamente compresi nel periodo. Le ore sovrapposte dello stesso tecnico contano una sola volta. Il calcolo usa ore e minuti di orologio, senza correzioni per il cambio dell’ora legale.</p><p data-hours-status role="status" aria-live="polite"></p><div data-hours-results></div></div><div class="actions"><button type="button" class="close">Chiudi</button></div>');
+  const root=document.getElementById('tscHoursRoot'),form=document.getElementById('tscHoursFilters'),results=root.querySelector('[data-hours-results]'),status=root.querySelector('[data-hours-status]');
+  const from=form.elements.namedItem('from'),to=form.elements.namedItem('to'),preset=form.elements.namedItem('preset'),filter=form.elements.namedItem('statusFilter'),submit=form.querySelector('[type="submit"]');
+  function setPeriod(){
+   const base=typeof date!=='undefined'&&date instanceof Date?new Date(date):new Date();
+   if(preset.value==='month'){from.value=iso(new Date(base.getFullYear(),base.getMonth(),1));to.value=iso(new Date(base.getFullYear(),base.getMonth()+1,0));}
+   if(preset.value==='week'){const first=new Date(base.getFullYear(),base.getMonth(),base.getDate());first.setDate(first.getDate()-((first.getDay()+6)%7));const last=new Date(first);last.setDate(last.getDate()+6);from.value=iso(first);to.value=iso(last);}
+  }
+  let busy=false,revision=0;
+  function invalidate(){revision++;results.replaceChildren();status.textContent='Premi Calcola ore online per il periodo selezionato.';}
+  preset.onchange=()=>{setPeriod();invalidate();};filter.onchange=invalidate;
+  from.onchange=to.onchange=()=>{preset.value='custom';invalidate();};
+  form.onsubmit=async event=>{
+   event.preventDefault();if(busy||!unlocked||!form.reportValidity())return;
+   if(from.value>to.value){status.textContent='La data finale non può precedere quella iniziale.';return;}
+   if(typeof window.calendarEditorHoursRequest!=='function'){status.textContent='Accesso editor non disponibile. Premi Blocca e accedi di nuovo.';return;}
+   busy=true;submit.disabled=true;results.replaceChildren();status.textContent='Verifica editor e conteggio online…';const currentRevision=revision;
+   try{
+    const data=await window.calendarEditorHoursRequest({from:from.value,to:to.value,statusFilter:filter.value});
+    if(!unlocked||!root.isConnected||revision!==currentRevision)return;
+    results.innerHTML=renderResult(data);status.textContent='Conteggio aggiornato: '+new Date(data.calculatedAt).toLocaleString('it-IT');
+   }catch(error){if(unlocked&&root.isConnected&&revision===currentRevision)status.textContent=error.name==='AbortError'?'Connessione scaduta. Riprova.':error.message;}
+   finally{busy=false;if(root.isConnected)submit.disabled=false;}
+  };
+  setPeriod();form.requestSubmit();
+ }
+ function mount(){
+  const nav=document.getElementById('nav');
+  if(nav&&!document.getElementById('tscHoursMenuButton')){const b=document.createElement('button');b.type='button';b.id='tscHoursMenuButton';b.textContent='⏱ Conteggio ore';b.hidden=true;b.style.display='none';b.onclick=open;nav.append(b);}
+  protect();
+ }
+ const previous=render;render=function(){const result=previous.apply(this,arguments);mount();return result;};
+ window.addEventListener('click',event=>{if(event.target instanceof Element&&event.target.closest('#lock')){const root=document.getElementById('tscHoursRoot');if(root){root.replaceChildren();close();}}},true);
+ window.addEventListener('pagehide',()=>{const root=document.getElementById('tscHoursRoot');if(root){root.replaceChildren();close();}});
+ window.addEventListener('pageshow',protect);
+ mount();window.addEventListener('load',mount);
 })();
 </script>
 
