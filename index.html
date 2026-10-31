@@ -1926,185 +1926,222 @@ window.addEventListener('resize',schedule);window.addEventListener('load',schedu
 
 
 <style>
-#tscDraftRoot{max-height:76vh;overflow:auto;min-width:0}
-#tscDraftRoot button,#tscDraftRoot input,#tscDraftRoot select{min-height:44px;font-size:16px}
-#tscDraftRoot .wd-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;align-items:center}
-#tscDraftRoot .wd-banner{padding:12px;background:#fff3cd;border:1px solid #e4bd66;border-radius:8px;margin:10px 0;line-height:1.5}
-#tscDraftRoot .wd-published{background:#e7f5ed;border-color:#80b99b}
-#tscDraftRoot .wd-card{padding:12px;border:1px solid #cbd5e1;border-radius:8px;margin:8px 0;overflow-wrap:anywhere}
-#tscDraftRoot .wd-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#tscDraftRoot label{display:grid;gap:5px;font-size:14px}
-#tscDraftRoot .wd-full{grid-column:1/-1}
-#tscDraftRoot .wd-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-#tscDraftRoot .wd-checks label,#tscDraftRoot .wd-check{display:flex;align-items:center;gap:8px}
-#tscDraftRoot .wd-checks input,#tscDraftRoot .wd-check input{width:18px;min-height:18px}
-#tscDraftRoot input,#tscDraftRoot select,#tscDraftRoot textarea{box-sizing:border-box;max-width:100%}
-#tscDraftRoot .wd-slot{display:flex;gap:5px;margin:6px 0;align-items:center}
-#tscDraftRoot .wd-slot input{width:110px;min-width:0}
-#tscDraftRoot .wd-preview{overflow:auto;border:1px solid #cbd5e1}
-#tscDraftRoot table{border-collapse:collapse;min-width:1000px;width:100%;font-size:12px}
-#tscDraftRoot th,#tscDraftRoot td{border:1px solid #cbd5e1;padding:8px;vertical-align:top;min-width:110px}
-#tscDraftRoot th{background:#f1f5f9}
-#tscDraftRoot .wd-turn{margin:5px 0;padding:5px;background:#eef2ff;white-space:pre-wrap;overflow-wrap:anywhere}
-#tscDraftStatus{white-space:pre-wrap}
+#modal.wd-v2-wide{padding:8px;align-items:stretch;justify-content:stretch}
+#modal.wd-v2-wide>.dialog{width:100%;max-width:none;height:calc(100vh - 16px);height:calc(100dvh - 16px);max-height:none;padding:12px;display:flex;flex-direction:column;overflow:hidden;border-radius:9px}
+#modal.wd-v2-wide #modalTitle{font-size:21px;margin:0 0 8px;flex:none}
+#modal.wd-v2-wide #modalBody{flex:1;min-height:0;display:flex;flex-direction:column}
+#wdWorkspace{flex:1;min-height:0;display:flex;flex-direction:column;gap:7px}
+#wdWorkspace .wd-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:none}
+#wdWorkspace button{font-size:13px;min-height:34px;padding:7px 10px}
+#wdWorkspace input,#wdWorkspace select,#wdWorkspace textarea{font-size:16px;max-width:100%;min-width:0;box-sizing:border-box}
+#wdWorkspace .wd-toolbar input{min-height:36px;width:150px}
+#wdWorkspace .wd-mode{border:1px solid #e0b95e;background:#fff5d9;border-radius:7px;padding:7px 10px;font-size:13px;flex:none;line-height:1.4}
+#wdWorkspace .wd-mode.readonly{background:#e9f3ff;border-color:#97b7de}
+#wdWorkspace .wd-mode.published{background:#edf7ef;border-color:#9fc2a5}
+#wdWorkspace .wd-body{display:flex;gap:10px;flex:1;min-height:0;min-width:0}
+#wdWorkspace .wd-board{flex:1;min-width:0;overflow:auto;border:1px solid #c8d3df;border-radius:7px;background:white;overscroll-behavior:contain}
+#wdWorkspace .wd-board table{width:100%;min-width:760px;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px}
+#wdWorkspace .wd-board th,#wdWorkspace .wd-board td{border-right:1px solid #d5dde6;border-bottom:1px solid #d5dde6;padding:5px;vertical-align:top;white-space:normal}
+#wdWorkspace .wd-board thead th{position:sticky;top:0;z-index:3;background:#e5ebf3;text-align:center;color:#1e293b;font-size:13px;height:49px}
+#wdWorkspace .wd-board tr>:first-child{position:sticky;left:0;z-index:2;background:#f0f3f8;width:150px;min-width:150px;overflow-wrap:anywhere;text-align:left}
+#wdWorkspace .wd-board thead tr>:first-child{z-index:4}
+#wdWorkspace .wd-board tbody th{font-size:13px;padding:10px 7px;vertical-align:middle;color:#243249}
+#wdWorkspace .wd-board tbody td{height:75px;background:#fff}
+#wdWorkspace .wd-board tbody tr:nth-child(even) td{background:#fafbfd}
+#wdWorkspace .wd-turn{display:block;width:100%;text-align:left;border:1px solid #bdcce6;border-left:4px solid #5569ac;border-radius:5px;background:#eef2ff;color:#182339;padding:6px!important;margin:3px 0;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
+#wdWorkspace .wd-turn b{font-size:12px;display:block}
+#wdWorkspace .wd-turn span,#wdWorkspace .wd-turn small{display:block;font-size:11px;line-height:1.35}
+#wdWorkspace .wd-turn.wait{background:#fff5dc;border-left-color:#c59120}
+#wdWorkspace .wd-turn.absent{background:#e9f2eb;border-left-color:#6d9678}
+#wdWorkspace .wd-add{width:100%;border:1px dashed #b9c7d7;background:transparent;color:#5b6e86;font-size:12px;padding:4px!important;min-height:30px}
+#wdWorkspace .wd-add:hover{background:#edf3fb}
+#wdWorkspace .wd-editor{width:320px;flex:0 0 320px;min-height:0;overflow:auto;border:1px solid #b8c9df;border-radius:7px;padding:10px;background:#f7f9fc}
+#wdWorkspace .wd-editor h3{font-size:16px;margin:0 0 7px}
+#wdWorkspace .wd-editor label{display:grid;gap:3px;font-size:12px;margin-bottom:7px}
+#wdWorkspace .wd-editor input,#wdWorkspace .wd-editor select,#wdWorkspace .wd-editor textarea{width:100%;min-height:36px}
+#wdWorkspace .wd-editor .wd-check{display:flex;align-items:center;gap:6px}
+#wdWorkspace .wd-editor .wd-check input{width:18px;min-height:18px;flex:none}
+#wdWorkspace .wd-checks{max-height:180px;overflow:auto;border:1px solid #d6dfe9;padding:6px;background:#fff;margin-bottom:8px}
+#wdWorkspace .wd-fields{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#wdWorkspace .wd-slot{display:flex;gap:4px;align-items:center;margin-bottom:5px}
+#wdWorkspace .wd-slot input{flex:1;min-width:0}
+#wdWorkspace .wd-slot button{min-width:30px;padding:4px!important}
+#wdWorkspace .wd-status{font-size:12px;line-height:1.4;color:#475569;white-space:pre-wrap;flex:none;margin:0}
+#modal.wd-v2-wide .actions{margin-top:7px;flex:none}
 #tscWeekPublicBanner{padding:10px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;margin:8px 0}
-@media(max-width:500px){#tscDraftRoot .wd-form,#tscDraftRoot .wd-checks{grid-template-columns:1fr}}
+@media(min-width:801px) and (max-width:1199px){
+ #wdWorkspace .wd-body{flex-direction:column}
+ #wdWorkspace .wd-editor{width:100%;flex:0 1 40%;max-height:45%;min-height:150px}
+}
+@media(max-width:800px){
+ #modal.wd-v2-wide{padding:0}#modal.wd-v2-wide>.dialog{height:100vh;height:100dvh;border-radius:0;padding:8px}
+ #modal.wd-v2-wide #modalTitle{font-size:17px}
+ #wdWorkspace .wd-body{flex-direction:column}
+ #wdWorkspace .wd-board{min-height:150px}
+ #wdWorkspace .wd-editor{width:100%;flex:0 1 45%;max-height:50%;min-height:140px}
+ #wdWorkspace .wd-board tr>:first-child{width:125px;min-width:125px}
+ #wdWorkspace .wd-board table{min-width:850px}
+ #wdWorkspace .wd-toolbar button{min-height:38px;font-size:12px}
+}
 </style>
 <script>
 (()=>{
- 'use strict';if(window.tscWeeklyDraftsV1)return;window.tscWeeklyDraftsV1=true;
- const e=x=>esc(String(x??'')),copy=x=>JSON.parse(JSON.stringify(x));
- let session=null,root=null,editor=null,formDirty=false,loadGeneration=0;
+ 'use strict';if(window.tscWeeklyDraftsV2)return;window.tscWeeklyDraftsV2=true;
+ const e=v=>esc(String(v??'')),copy=v=>JSON.parse(JSON.stringify(v));
+ let st=null,root=null,ed=null,loadToken=0,techRows=[],boardScroll={top:0,left:0};
  function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
- function weekOf(value){const d=new Date(value+'T12:00:00');if(!Number.isFinite(d.getTime()))throw new Error('Data non valida.');d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d);}
- function addDays(value,n){const d=new Date(value+'T12:00:00');d.setDate(d.getDate()+n);return iso(d);}
- function human(v){return String(v).split('-').reverse().join('/');}
- function times(s){if(s.withoutTime||['riposo','ferie','festivo'].includes(s.dayType)||!s.slots?.length)return 'Senza orario';return s.slots.map(x=>x.start+'–'+x.end+(x.end<=x.start?' (+1g)':'')).join(' · ');}
- function names(s){return (s.tech||[]).map(id=>session.catalog.tech.find(t=>String(t.id)===String(id))?.name||'Tecnico '+id).join(', ')||'Nessun tecnico assegnato';}
- function unsaved(){return !!session?.dirty||formDirty;}
- function apply(data){session={week:data.week,end:data.end,revision:data.draft?.revision??null,state:data.draft?.state??'none',shifts:copy(data.draft?.state==='draft'?data.draft.shifts:data.publicShifts),publicShifts:copy(data.publicShifts),catalog:data.catalog,dirty:false,preview:false,busy:false,message:''};editor=null;formDirty=false;}
- function message(value){if(session)session.message=value;const el=document.getElementById('tscDraftStatus');if(el)el.textContent=value;}
+ function mondayOf(value){const d=new Date(value+'T12:00:00');if(!Number.isFinite(d.getTime()))throw new Error('Data non valida.');d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d);}
+ function plusDays(value,n){const d=new Date(value+'T12:00:00');d.setDate(d.getDate()+n);return iso(d);}
+ function human(value){return String(value).split('-').reverse().join('/');}
+ function labelTime(s){if(s.withoutTime||['riposo','ferie','festivo'].includes(s.dayType)||!s.slots?.length)return 'Senza orario';return s.slots.map(x=>x.start+'–'+x.end+(x.end<=x.start?' (+1g)':'')).join(' · ');}
  function alive(){return unlocked&&root?.isConnected;}
- async function request(action,extra={}){
-  if(!alive()||session.busy)return null;
-  session.busy=true;const thisSession=session;paint();
-  try{const data=await window.calendarEditorWeekRequest({action,week:session.week,revision:session.revision,...extra});if(!alive()||session!==thisSession)return null;return data;}
-  catch(error){if(alive()&&session===thisSession)message(error.name==='AbortError'?'Connessione scaduta. Ricarica la settimana prima di riprovare: il server potrebbe aver concluso l’operazione.':error.message);return null;}
-  finally{if(session===thisSession){session.busy=false;if(alive())paint();}}
+ function dirty(){return !!st?.dirty||!!ed?.dirty;}
+ function editable(){return st?.state==='draft'&&!st.preview&&!st.busy;}
+ function apply(data){if(st?.week!==data.week)boardScroll={top:0,left:0};st={week:data.week,end:data.end,revision:data.draft?.revision??null,state:data.draft?.state??'none',shifts:copy(data.draft?.state==='draft'?data.draft.shifts:data.publicShifts),catalog:data.catalog,dirty:false,preview:false,busy:false,message:''};ed=null;}
+ function say(value){if(st)st.message=value;const node=document.getElementById('wdV2Status');if(node)node.textContent=value;}
+ function people(model){
+  const rows=[],ids=new Set();
+  for(const t of model.catalog.tech||[]){if(t?.id==null)continue;const id=String(t.id);if(ids.has(id))continue;ids.add(id);rows.push({id,name:String(t.name||'Tecnico')});}
+  for(const s of model.shifts)for(const value of s.tech||[]){const id=String(value);if(!ids.has(id)){ids.add(id);rows.push({id,name:'Tecnico non più in elenco ('+id+')'});}}
+  if(model.shifts.some(s=>!s.tech?.length)||model.state==='draft'&&!model.preview)rows.push({id:null,name:'Da assegnare'});
+  return rows;
  }
- function makeRoot(){modal('📝 Bozze settimanali · Solo editor','<div id="tscDraftRoot"></div><div class="actions"><button type="button" id="tscDraftClose">Chiudi</button></div>');root=document.getElementById('tscDraftRoot');document.getElementById('tscDraftClose').onclick=()=>{if(unsaved()&&!confirm('Ci sono modifiche non salvate. Chiudere? Restano solo nella memoria di questa pagina finché non la ricarichi.'))return;close();};}
+ function grid(model,rows){
+  const days=Array.from({length:7},(_,i)=>plusDays(model.week,i)),canEdit=model.state==='draft'&&!model.preview&&!model.busy,weekdays=['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+  let html='<table aria-label="Calendario settimanale dei tecnici in bozza"><colgroup><col style="width:150px">'+days.map(()=>'<col>').join('')+'</colgroup><thead><tr><th scope="col">Tecnici</th>'+days.map((day,i)=>'<th scope="col">'+weekdays[i]+'<br>'+e(human(day))+'</th>').join('')+'</tr></thead><tbody>';
+  rows.forEach((tech,r)=>{
+   html+='<tr><th scope="row">'+e(tech.name)+'</th>';
+   days.forEach((day,d)=>{
+    html+='<td>';
+    model.shifts.forEach((s,index)=>{
+     if(s.date!==day||(tech.id===null?s.tech?.length:!(s.tech||[]).some(id=>String(id)===tech.id)))return;
+     const c='wd-turn'+(['riposo','ferie','festivo'].includes(s.dayType)?' absent':s.status!=='Confermato'?' wait':'');
+     const body='<b>'+e(labelTime(s))+'</b><span>'+e(s.title)+'</span><small>'+e(s.space)+'</small>'+(s.status!=='Confermato'?'<small>'+e(s.status)+'</small>':'');
+     html+=canEdit?'<button type="button" class="'+c+'" data-wd-edit="'+index+'" title="Modifica turno in bozza">'+body+'</button>':'<div class="'+c+'">'+body+'</div>';
+    });
+    if(canEdit)html+='<button type="button" class="wd-add" data-wd-row="'+r+'" data-wd-day="'+d+'" aria-label="Aggiungi turno per '+e(tech.name)+' il '+e(human(day))+'">＋ Turno</button>';
+    html+='</td>';
+   });
+   html+='</tr>';
+  });
+  if(!rows.length)html+='<tr><td colspan="8">Nessun tecnico presente nel calendario online.</td></tr>';
+  return html+'</tbody></table>';
+ }
+ function wideMode(){const modalNode=document.getElementById('modal'),active=!!document.getElementById('wdWorkspace')&&modalNode?.classList.contains('show');if(modalNode&&modalNode.classList.contains('wd-v2-wide')!==!!active)modalNode.classList.toggle('wd-v2-wide',!!active);}
+ function shell(){
+  modal('📝 Calendario settimanale in bozza · Solo editor','<div id="wdWorkspace"></div><div class="actions"><button type="button" id="wdV2Close">Chiudi bozza</button></div>');root=document.getElementById('wdWorkspace');wideMode();
+  document.getElementById('wdV2Close').onclick=()=>{if(dirty()&&!confirm('Ci sono modifiche non salvate online. Chiudere? Restano solo nella memoria della pagina finché non la ricarichi.'))return;close();wideMode();};
+ }
  async function load(week){
-  if(unsaved()&&!confirm('Ricaricare e scartare le modifiche non salvate?'))return;
-  if(session?.busy)return;
-  try{week=weekOf(week);}catch(error){message(error.message);return;}
-  if(!root?.isConnected)makeRoot();
-  const requestedRoot=root,loadID=++loadGeneration;
-  root.innerHTML='<p role="status">Verifica editor e caricamento settimana…</p>';
-  try{const result=await window.calendarEditorWeekRequest({action:'get',week});if(!alive()||root!==requestedRoot||loadGeneration!==loadID)return;apply(result);paint();}
-  catch(error){if(alive()&&root===requestedRoot&&loadGeneration===loadID){root.innerHTML='<p id="tscDraftStatus" role="status"></p><button type="button" id="tscDraftRetry">Riprova</button>';message(error.message);document.getElementById('tscDraftRetry').onclick=()=>load(week);}}
+  if(st?.busy)return;
+  if(dirty()&&!confirm('Ricaricare la settimana e scartare le modifiche non salvate?'))return;
+  try{week=mondayOf(week);}catch(error){say(error.message);return;}
+  if(!root?.isConnected||!document.getElementById('modal').classList.contains('show'))shell();
+  const thisRoot=root,token=++loadToken;root.innerHTML='<p role="status">Caricamento calendario settimanale riservato…</p>';
+  try{const data=await window.calendarEditorWeekRequest({action:'get',week});if(!alive()||root!==thisRoot||token!==loadToken)return;apply(data);draw();}
+  catch(error){if(alive()&&root===thisRoot&&token===loadToken){root.innerHTML='<p id="wdV2Status" role="status"></p><button type="button" id="wdV2Retry">Riprova</button>';say(error.message);document.getElementById('wdV2Retry').onclick=()=>load(week);}}
  }
- function open(week){
-  if(!unlocked)return toast('Accedi come editor per aprire le bozze.');
-  if(document.querySelector('#modal.show form')&&!document.getElementById('tscDraftRoot'))return toast('Chiudi o salva il modulo aperto prima delle bozze.');
+ function open(){
+  if(!unlocked)return toast('Accedi come editor per vedere le bozze.');
+  if(document.querySelector('#modal.show form')&&!document.getElementById('wdWorkspace'))return toast('Chiudi o salva il modulo aperto.');
   const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;
-  if(session&&unsaved()&&!week){makeRoot();paint();return;}
-  load(week||addDays(weekOf(iso(new Date())),7));
+  if(st){shell();draw();return;}
+  load(plusDays(mondayOf(iso(new Date())),7));
  }
- function preview(){
-  const days=Array.from({length:7},(_,i)=>addDays(session.week,i));
-  const tech=copy(session.catalog.tech),known=new Set(tech.map(t=>String(t.id)));
-  for(const s of session.shifts)for(const id of s.tech||[])if(!known.has(String(id))){known.add(String(id));tech.push({id,name:'Tecnico '+id});}
-  let html='<div class="wd-preview"><table><thead><tr><th>Tecnico</th>'+days.map(d=>'<th>'+e(human(d))+'</th>').join('')+'</tr></thead><tbody>';
-  for(const t of tech)html+='<tr><th>'+e(t.name)+'</th>'+days.map(day=>'<td>'+session.shifts.filter(s=>s.date===day&&(s.tech||[]).some(id=>String(id)===String(t.id))).map(s=>'<div class="wd-turn"><b>'+e(times(s))+'</b><br>'+e(s.title)+'<br>'+e(s.space)+'<br>'+e(s.status)+'</div>').join('')+'</td>').join('')+'</tr>';
-  html+='</tbody></table></div>';
-  const empty=session.shifts.filter(s=>!s.tech?.length);if(empty.length)html+='<p class="wd-banner">Turni senza tecnici assegnati: '+empty.length+'.</p>'+empty.map(card).join('');
-  return html;
+ async function request(action,extra={}){
+  if(!alive()||!st||st.busy)return null;
+  st.busy=true;const before=st;draw();
+  try{const data=await window.calendarEditorWeekRequest({action,week:st.week,revision:st.revision,...extra});if(!alive()||st!==before)return null;return data;}
+  catch(error){if(alive()&&st===before)say(error.name==='AbortError'?'Connessione scaduta. Ricarica prima di riprovare: il server potrebbe aver completato l’operazione.':error.message);return null;}
+  finally{if(st===before){st.busy=false;if(alive())draw();}}
  }
- function card(s,index){return '<div class="wd-card"><b>'+e(human(s.date))+' · '+e(s.title)+'</b><br>'+e(times(s))+'<br>'+e(names(s))+'<br>'+e(s.space)+' · '+e(s.status)+(session.state==='draft'&&!session.preview?'<div class="wd-tools"><button type="button" data-wd-edit="'+index+'">Modifica</button><button type="button" data-wd-delete="'+index+'">Elimina dalla bozza</button></div>':'')+'</div>';}
- function paint(){
-  if(!alive()||!session)return;
-  if(editor!==null){paintEditor();return;}
-  const lock=session.busy?' disabled':'',isDraft=session.state==='draft';
-  root.innerHTML='<div class="wd-tools"><label>Settimana (lunedì)<input type="date" id="wdWeek" value="'+e(session.week)+'"'+lock+'></label><button type="button" data-wd="load"'+lock+'>Carica settimana</button></div><div class="wd-banner '+(!isDraft?'wd-published':'')+'">'+(session.preview?'👁 ANTEPRIMA PRIVATA — NON PUBBLICATA':isDraft?'🔒 BOZZA — NON PUBBLICATA':'Versione pubblica / nessuna bozza attiva')+'<br>Dal '+e(human(session.week))+' al '+e(human(session.end))+(session.dirty?'<br>Modifiche non ancora salvate online.':'')+'</div><p>La bozza riguarda solo i turni tecnici. I tecnici continuano a vedere l’ultima versione pubblicata. Questa anteprima non pubblica nulla.</p><div class="wd-tools">'+(!isDraft?'<button type="button" data-wd="begin"'+lock+'>✏️ Crea bozza riservata</button>':session.preview?'<button type="button" data-wd="back"'+lock+'>Torna alla bozza</button><button type="button" class="primary" data-wd="publish"'+lock+'>✅ Pubblica settimana</button>':'<button type="button" data-wd="new"'+lock+'>＋ Nuovo turno in bozza</button><button type="button" data-wd="save"'+lock+'>Salva bozza online</button><button type="button" data-wd="download"'+lock+'>Scarica copia bozza</button><button type="button" data-wd="reset"'+lock+'>Ricrea dal pubblicato</button><button type="button" data-wd="preview"'+lock+'>👁 Anteprima bozza</button>')+'</div><p id="tscDraftStatus" role="status"></p>'+(session.preview?preview():session.shifts.length?session.shifts.map(card).join(''):'<p>Nessun turno in questa settimana.</p>');
-  message(session.message||'');
-  root.querySelectorAll('button').forEach(b=>{b.disabled=session.busy;});
-  root.querySelectorAll('[data-wd]').forEach(b=>b.onclick=()=>action(b.dataset.wd));
-  root.querySelectorAll('[data-wd-edit]').forEach(b=>b.onclick=()=>{editor={index:Number(b.dataset.wdEdit),value:copy(session.shifts[Number(b.dataset.wdEdit)])};formDirty=false;paint();});
-  root.querySelectorAll('[data-wd-delete]').forEach(b=>b.onclick=()=>{if(confirm('Eliminare questo turno SOLO dalla bozza?')){session.shifts.splice(Number(b.dataset.wdDelete),1);session.dirty=true;paint();}});
+ function draw(){
+  if(!alive()||!st)return;
+  const previousBoard=root.querySelector('.wd-board');if(previousBoard)boardScroll={top:previousBoard.scrollTop,left:previousBoard.scrollLeft};
+  const lock=st.busy?' disabled':'',draft=st.state==='draft';techRows=people(st);
+  const mode=st.preview?'👁 ANTEPRIMA PRIVATA — NON PUBBLICATA':draft?'🔒 BOZZA PRIVATA — NON PUBBLICATA':'VERSIONE PUBBLICA — crea una bozza per modificarla in privato';
+  const tools=!draft?'<button type="button" data-wd-action="begin"'+lock+'>✏️ Crea bozza riservata</button>':st.preview?'<button type="button" data-wd-action="back"'+lock+'>Torna alla bozza</button><button type="button" class="primary" data-wd-action="publish"'+lock+'>✅ Pubblica settimana</button>':'<button type="button" data-wd-action="save"'+lock+'>Salva bozza online</button><button type="button" data-wd-action="preview"'+lock+'>👁 Anteprima bozza</button><button type="button" data-wd-action="download"'+lock+'>Scarica copia</button><button type="button" data-wd-action="reset"'+lock+'>Ricrea dal pubblicato</button>';
+  root.innerHTML='<div class="wd-toolbar"><button type="button" data-wd-action="previous" aria-label="Settimana precedente"'+lock+'>◀</button><input type="date" id="wdV2Week" aria-label="Settimana da caricare" value="'+e(st.week)+'"'+lock+'><button type="button" data-wd-action="next" aria-label="Settimana successiva"'+lock+'>▶</button><button type="button" data-wd-action="load"'+lock+'>Carica settimana</button>'+tools+'</div><div class="wd-mode '+(st.preview?'readonly':!draft?'published':'')+'"><b>'+mode+'</b> · '+e(human(st.week))+' – '+e(human(st.end))+(st.dirty?' · MODIFICHE NON SALVATE ONLINE':'')+'<br>'+(draft&&!st.preview?'Clicca una casella per aggiungere un turno o un turno esistente per modificarlo. I tecnici non vedono queste modifiche.':'I tecnici continuano a vedere l’ultima versione pubblicata.')+'</div><div class="wd-body"><div class="wd-board" tabindex="0" aria-label="Griglia: scorri per vedere tutti i tecnici e i giorni">'+grid(st,techRows)+'</div>'+(ed?'<aside class="wd-editor" id="wdV2Editor"></aside>':'')+'</div><p class="wd-status" id="wdV2Status" role="status" aria-live="polite"></p>';
+  say(st.message||'');
+  root.querySelectorAll('[data-wd-action]').forEach(b=>b.onclick=()=>action(b.dataset.wdAction));
+  root.querySelectorAll('[data-wd-edit]').forEach(b=>b.onclick=()=>edit(Number(b.dataset.wdEdit)));
+  root.querySelectorAll('[data-wd-row]').forEach(b=>b.onclick=()=>newTurn(plusDays(st.week,Number(b.dataset.wdDay)),techRows[Number(b.dataset.wdRow)].id));
+  const currentBoard=root.querySelector('.wd-board');if(currentBoard){currentBoard.scrollTop=boardScroll.top;currentBoard.scrollLeft=boardScroll.left;}
+  if(ed)drawEditor();
+ }
+ function allowDiscard(){return !ed?.dirty||confirm('Scartare le modifiche non applicate al turno aperto?');}
+ function edit(index){if(!editable()||!allowDiscard())return;ed={index,value:copy(st.shifts[index]),dirty:false};draw();}
+ function newTurn(day,tech){
+  if(!editable()||!allowDiscard())return;
+  ed={index:-1,dirty:false,value:{id:crypto.randomUUID(),date:day,title:'',space:'',slots:[{start:'09:00',end:'13:00'}],tech:tech===null?[]:[tech],roles:['Tecnico'],need:1,status:'In attesa',notes:'',equipment:'',van:false,dayType:'lavoro',withoutTime:false}};draw();
  }
  async function save(){
-  if(!session.dirty)return true;
-  const data=await request('save',{shifts:copy(session.shifts)});if(!data)return false;
-  apply(data);message('Bozza salvata online. Nessuna notifica inviata.');paint();return true;
+  if(ed){say('Applica o annulla prima il turno nel pannello di modifica.');return false;}
+  if(!st.dirty)return true;const result=await request('save',{shifts:copy(st.shifts)});if(!result)return false;
+  apply(result);say('Bozza salvata online. Nessuna notifica inviata.');draw();return true;
  }
  async function action(name){
-  if(!alive()||session.busy)return;
-  if(name==='load')return load(document.getElementById('wdWeek').value);
-  if(name==='begin'){const data=await request('begin');if(data){apply(data);message('Bozza privata pronta. I turni pubblici non sono cambiati.');paint();}return;}
-  if(name==='new'){editor={index:-1,value:{id:crypto.randomUUID(),date:session.week,title:'',space:'',slots:[{start:'09:00',end:'13:00'}],tech:[],roles:['Tecnico'],need:1,status:'In attesa',notes:'',equipment:'',van:false,dayType:'lavoro',withoutTime:false}};formDirty=false;paint();return;}
+  if(!alive()||!st||st.busy)return;
+  if(name==='load')return load(document.getElementById('wdV2Week').value);
+  if(name==='previous'||name==='next')return load(plusDays(st.week,name==='previous'?-7:7));
+  if(name==='begin'){const data=await request('begin');if(data){apply(data);say('Bozza privata pronta: puoi lavorare direttamente nella griglia.');draw();}return;}
+  if(name==='save')return save();
+  if(name==='preview'){if(await save()){st.preview=true;say('Anteprima della bozza salvata. Non è ancora pubblica.');draw();}return;}
+  if(name==='back'){st.preview=false;draw();return;}
   if(name==='download'){
-   const blob=new Blob([JSON.stringify({week:session.week,end:session.end,revision:session.revision,shifts:session.shifts},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='bozza-privata-'+session.week+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
+   if(ed)return say('Applica o annulla prima il turno aperto, poi scarica la copia.');
+   const blob=new Blob([JSON.stringify({week:st.week,end:st.end,revision:st.revision,shifts:st.shifts},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='bozza-privata-'+st.week+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
   }
   if(name==='reset'){
-   if(!confirm('ATTENZIONE: sostituire la bozza con i turni attualmente pubblici? Le modifiche private salvate e non salvate verranno scartate. Scarica prima una copia se vuoi conservarle. I turni pubblici non cambiano.'))return;
-   const data=await request('reset');if(data){apply(data);message('Bozza ricreata dalla versione pubblica attuale.');paint();}return;
+   if(ed)return say('Applica o annulla prima il turno aperto.');
+   if(!confirm('Sostituire la bozza con i turni attualmente pubblici? Le modifiche private verranno scartate. Scarica prima una copia se vuoi conservarle. I turni pubblici non cambiano.'))return;
+   const data=await request('reset');if(data){apply(data);say('Bozza ricreata dalla versione pubblica attuale.');draw();}return;
   }
-  if(name==='save')return save();
-  if(name==='preview'){if(await save()){session.preview=true;message('Anteprima della bozza salvata. Per renderla pubblica serve la conferma.');paint();}return;}
-  if(name==='back'){session.preview=false;paint();return;}
   if(name==='publish'){
-   if(!session.preview||session.dirty)return message('Salva la bozza e apri prima l’anteprima.');
+   if(!st.preview||st.dirty||ed)return say('Salva la bozza e controlla prima l’anteprima.');
    const sync=document.getElementById('syncStatus')?.textContent||'';
-   if((typeof savingRemote!=='undefined'&&savingRemote)||/non salvato|solo locale|connessione.*non riuscita|salvataggio online in corso/i.test(sync))return message('Attendi la sincronizzazione del calendario prima di pubblicare.');
-   if(!confirm('Pubblicare i turni dal '+human(session.week)+' al '+human(session.end)+'?\nSostituiranno la versione pubblica di QUESTA settimana. Verrà richiesta una notifica agli iscritti, salvo pausa generale.'))return;
-   const data=await request('publish');if(!data)return;
-   apply(data);message('Settimana pubblicata. La notifica viene elaborata dal servizio esistente.');paint();
-   await pullRemote();mount();
+   if((typeof savingRemote!=='undefined'&&savingRemote)||/non salvato|solo locale|connessione.*non riuscita|salvataggio online in corso/i.test(sync))return say('Attendi la sincronizzazione prima di pubblicare.');
+   if(!confirm('Pubblicare i turni dal '+human(st.week)+' al '+human(st.end)+'?\nSostituiranno la versione pubblica di QUESTA settimana. Verrà richiesta una notifica, salvo pausa generale.'))return;
+   const data=await request('publish');if(!data)return;apply(data);say('Settimana pubblicata. La notifica viene elaborata dal servizio esistente.');draw();await pullRemote();mount();
   }
  }
- function checkboxList(values,selected,name){return values.map(v=>{const value=typeof v==='object'?String(v.id):String(v),label=typeof v==='object'?v.name:v;return '<label><input type="checkbox" name="'+name+'" value="'+e(value)+'"'+(selected.map(String).includes(value)?' checked':'')+'>'+e(label)+'</label>';}).join('');}
- function paintEditor(){
-  if(!alive())return;const s=editor.value;
-  const technicians=copy(session.catalog.tech),ids=new Set(technicians.map(t=>String(t.id)));for(const id of s.tech||[])if(!ids.has(String(id)))technicians.push({id,name:'Tecnico non più in elenco ('+id+')'});
-  root.innerHTML='<div class="wd-banner">🔒 MODIFICA TURNO IN BOZZA — NON PUBBLICATO</div><form id="wdTurnForm"><div class="wd-form"><label>Data<input name="date" type="date" required min="'+session.week+'" max="'+session.end+'" value="'+e(s.date)+'"></label><label>Tipo giornata<select name="dayType">'+[['lavoro','Lavoro'],['riposo','Riposo'],['ferie','Ferie'],['festivo','Festivo']].map(([v,l])=>'<option value="'+v+'"'+((s.dayType||'lavoro')===v?' selected':'')+'>'+l+'</option>').join('')+'</select></label><label class="wd-full">Attività / produzione<input name="title" value="'+e(s.title)+'" maxlength="200"></label><label>Spazio<input name="space" list="wdSpaces" value="'+e(s.space)+'"><datalist id="wdSpaces">'+session.catalog.spaces.map(v=>'<option value="'+e(v)+'">').join('')+'</datalist></label><label>Stato<select name="status">'+['Confermato','In attesa','Da coprire'].map(v=>'<option'+(v===s.status?' selected':'')+'>'+v+'</option>').join('')+'</select></label><label class="wd-full wd-check"><input type="checkbox" name="withoutTime"'+(s.withoutTime?' checked':'')+'>Senza orario</label><div class="wd-full"><span>Fasce orarie</span><div id="wdSlots"></div><button type="button" id="wdAddSlot">＋ Fascia</button></div><div class="wd-full"><span>Tecnici</span><div class="wd-checks">'+checkboxList(technicians,s.tech||[],'tech')+'</div></div><div class="wd-full"><span>Mansioni</span><div class="wd-checks">'+checkboxList(session.catalog.roles,s.roles||[],'roles')+'</div></div><label>Numero tecnici richiesti<input type="number" min="0" max="1000" name="need" value="'+e(s.need??1)+'"></label><label class="wd-check"><input type="checkbox" name="van"'+(s.van?' checked':'')+'>Richiede furgone</label><label class="wd-full">Attrezzatura<textarea name="equipment" rows="2">'+e(s.equipment)+'</textarea></label><label class="wd-full">Note<textarea name="notes" rows="3">'+e(s.notes)+'</textarea></label></div><div class="wd-tools"><button type="submit" class="primary">Applica alla bozza</button><button type="button" id="wdCancelTurn">Annulla turno</button></div><p id="tscDraftStatus" role="status"></p></form>';
-  const form=document.getElementById('wdTurnForm'),slots=document.getElementById('wdSlots');
-  function capture(){
-   if(!editor)return;
-   const f=new FormData(form);
-   editor.value={...editor.value,date:String(f.get('date')||''),title:String(f.get('title')||''),space:String(f.get('space')||''),dayType:String(f.get('dayType')||'lavoro'),withoutTime:f.has('withoutTime'),status:String(f.get('status')||''),tech:f.getAll('tech').map(String),roles:f.getAll('roles').map(String),need:Number(f.get('need')||1),van:f.has('van'),equipment:String(f.get('equipment')||''),notes:String(f.get('notes')||''),slots:[...slots.children].map(row=>({start:row.querySelector('[data-start]').value,end:row.querySelector('[data-end]').value}))};formDirty=true;
-  }
-  function addSlot(slot={start:'09:00',end:'13:00'}){const row=document.createElement('div');row.className='wd-slot';row.innerHTML='<input type="time" data-start value="'+e(slot.start)+'"><span>–</span><input type="time" data-end value="'+e(slot.end)+'"><button type="button" aria-label="Elimina fascia">×</button>';row.querySelector('button').onclick=()=>{row.remove();capture();};slots.append(row);}
-  (s.slots||[]).forEach(addSlot);if(!slots.children.length)addSlot();
-  document.getElementById('wdAddSlot').onclick=()=>{addSlot();capture();};
+ function checks(values,selected,name){const active=new Set(selected.map(String));return values.map(v=>{const id=typeof v==='object'?String(v.id):String(v),label=typeof v==='object'?v.name:v;return '<label class="wd-check"><input type="checkbox" name="'+name+'" value="'+e(id)+'"'+(active.has(id)?' checked':'')+'>'+e(label)+'</label>';}).join('');}
+ function drawEditor(){
+  const box=document.getElementById('wdV2Editor'),s=ed.value;
+  box.innerHTML='<h3>'+(ed.index<0?'Nuovo turno in bozza':'Modifica turno in bozza')+'</h3><form id="wdV2Form"><div class="wd-fields"><label>Data<input name="date" type="date" required min="'+st.week+'" max="'+st.end+'" value="'+e(s.date)+'"></label><label>Tipo<select name="dayType">'+[['lavoro','Lavoro'],['riposo','Riposo'],['ferie','Ferie'],['festivo','Festivo']].map(([v,l])=>'<option value="'+v+'"'+((s.dayType||'lavoro')===v?' selected':'')+'>'+l+'</option>').join('')+'</select></label></div><label>Attività / produzione<input name="title" maxlength="200" value="'+e(s.title)+'"></label><label>Spazio<input name="space" list="wdV2Spaces" value="'+e(s.space)+'"><datalist id="wdV2Spaces">'+(st.catalog.spaces||[]).map(v=>'<option value="'+e(v)+'">').join('')+'</datalist></label><label>Stato<select name="status">'+['Confermato','In attesa','Da coprire'].map(v=>'<option'+(s.status===v?' selected':'')+'>'+v+'</option>').join('')+'</select></label><label class="wd-check"><input type="checkbox" name="withoutTime"'+(s.withoutTime?' checked':'')+'>Senza orario</label><div id="wdV2Slots"></div><button type="button" id="wdV2AddSlot">＋ Fascia oraria</button><p>Tecnici assegnati</p><div class="wd-checks">'+checks(people(st).filter(t=>t.id!==null),s.tech||[],'tech')+'</div><details><summary>Altri dettagli</summary><p>Mansioni</p><div class="wd-checks">'+checks(st.catalog.roles||[],s.roles||[],'roles')+'</div><label>Numero tecnici richiesti<input type="number" name="need" min="0" max="1000" value="'+e(s.need??1)+'"></label><label class="wd-check"><input type="checkbox" name="van"'+(s.van?' checked':'')+'>Richiede furgone</label><label>Attrezzatura<textarea name="equipment" rows="2">'+e(s.equipment)+'</textarea></label><label>Note<textarea name="notes" rows="3">'+e(s.notes)+'</textarea></label></details><div class="wd-toolbar"><button type="submit" class="primary">Applica alla bozza</button><button type="button" id="wdV2Cancel">Annulla</button>'+(ed.index>=0?'<button type="button" id="wdV2Delete">Elimina turno</button>':'')+'</div><p class="wd-status" id="wdV2FormStatus"></p></form>';
+  const form=document.getElementById('wdV2Form'),slots=document.getElementById('wdV2Slots');
+  function read(){const f=new FormData(form);return {...ed.value,date:String(f.get('date')||''),title:String(f.get('title')||'').trim(),space:String(f.get('space')||''),dayType:String(f.get('dayType')||'lavoro'),withoutTime:f.has('withoutTime'),status:String(f.get('status')||'In attesa'),tech:f.getAll('tech').map(String),roles:f.getAll('roles').map(String),need:Number(f.get('need')||1),van:f.has('van'),equipment:String(f.get('equipment')||''),notes:String(f.get('notes')||''),slots:[...slots.children].map(row=>({start:row.querySelector('[data-start]').value,end:row.querySelector('[data-end]').value}))};}
+  function capture(){if(ed){ed.value=read();ed.dirty=true;}}
+  function addSlot(slot={start:'09:00',end:'13:00'}){const row=document.createElement('div');row.className='wd-slot';row.innerHTML='<input type="time" data-start value="'+e(slot.start)+'" aria-label="Inizio fascia"><span>–</span><input type="time" data-end value="'+e(slot.end)+'" aria-label="Fine fascia"><button type="button" aria-label="Elimina fascia">×</button>';row.querySelector('button').onclick=()=>{row.remove();capture();};slots.append(row);}
+  (s.slots||[]).forEach(addSlot);if(!slots.children.length)addSlot();document.getElementById('wdV2AddSlot').onclick=()=>{addSlot();capture();};
   form.addEventListener('input',capture);form.addEventListener('change',capture);
-  document.getElementById('wdCancelTurn').onclick=()=>{if(formDirty&&!confirm('Scartare le modifiche a questo turno?'))return;editor=null;formDirty=false;paint();};
+  document.getElementById('wdV2Cancel').onclick=()=>{if(!allowDiscard())return;ed=null;draw();};
+  const del=document.getElementById('wdV2Delete');if(del)del.onclick=()=>{if(confirm('Eliminare questo turno soltanto dalla bozza, per tutti i tecnici assegnati?')){st.shifts.splice(ed.index,1);st.dirty=true;ed=null;draw();}};
   form.onsubmit=event=>{
-   event.preventDefault();if(!unlocked||!form.reportValidity())return;
-   const f=new FormData(form),dayType=String(f.get('dayType')),absent=dayType!=='lavoro',withoutTime=absent||f.has('withoutTime');
-   const title=absent?({riposo:'Riposo',ferie:'Ferie',festivo:'Festivo'}[dayType]):String(f.get('title')||'').trim();
-   if(!title)return message('Inserisci l’attività.');
-   const tech=f.getAll('tech').map(String);if(absent&&!tech.length)return message('Seleziona almeno un tecnico.');
-   const ranges=withoutTime?[]:[...slots.children].map(row=>({start:row.querySelector('[data-start]').value,end:row.querySelector('[data-end]').value}));
-   if(!withoutTime&&(!ranges.length||ranges.some(x=>!x.start||!x.end)))return message('Completa almeno una fascia oraria.');
-   const date=String(f.get('date'));if(date<session.week||date>session.end)return message('La data deve rientrare nella settimana.');
-   const entry={...s,date,title,dayType,withoutTime,slots:ranges,tech,space:absent?'':String(f.get('space')||''),roles:absent?[]:f.getAll('roles').map(String),need:absent?tech.length:Number(f.get('need')||1),status:absent?'Confermato':String(f.get('status')),equipment:absent?'':String(f.get('equipment')||''),van:!absent&&f.has('van'),notes:String(f.get('notes')||'')};
-   if(editor.index<0)session.shifts.push(entry);else session.shifts[editor.index]=entry;
-   session.dirty=true;editor=null;formDirty=false;paint();
+   event.preventDefault();if(!editable()||!form.reportValidity())return;
+   const value=read(),absent=value.dayType!=='lavoro',withoutTime=absent||value.withoutTime,err=document.getElementById('wdV2FormStatus');
+   if(value.date<st.week||value.date>st.end){err.textContent='La data deve rientrare nella settimana.';return;}
+   if(absent)value.title={riposo:'Riposo',ferie:'Ferie',festivo:'Festivo'}[value.dayType];
+   if(!value.title){err.textContent='Inserisci l’attività.';return;}
+   if(absent&&!value.tech.length){err.textContent='Seleziona almeno un tecnico.';return;}
+   if(!withoutTime&&(!value.slots.length||value.slots.some(x=>!x.start||!x.end))){err.textContent='Completa almeno una fascia oraria.';return;}
+   value.withoutTime=withoutTime;if(withoutTime)value.slots=[];
+   if(absent){value.space='';value.roles=[];value.need=value.tech.length;value.status='Confermato';value.equipment='';value.van=false;}
+   if(ed.index<0)st.shifts.push(value);else st.shifts[ed.index]=value;st.dirty=true;ed=null;say('Turno applicato alla bozza. Premi Salva bozza online per conservarlo.');draw();
   };
  }
- function publicBanner(){
-  const old=document.getElementById('tscWeekPublicBanner');
-  if(page!=='calendar'){old?.remove();return;}
-  const week=fmt(monday(date)),end=addDays(week,6),hasShifts=(db.shifts||[]).some(x=>x.date>=week&&x.date<=end),published=!!db.publishedWeeks?.[week];
-  if(hasShifts||published){old?.remove();return;}
-  if(!old){const b=document.createElement('div');b.id='tscWeekPublicBanner';b.textContent='Calendario della settimana in preparazione / nessun turno ancora pubblicato.';document.getElementById('content')?.prepend(b);}
- }
- function protect(){
-  const b=document.getElementById('tscWeekDraftMenu');if(b){b.hidden=!unlocked;b.style.display=unlocked?'':'none';}
-  if(!unlocked){if(root?.isConnected){root.replaceChildren();close();}session=null;editor=null;formDirty=false;}
- }
- function mount(){
-  const nav=document.getElementById('nav');if(nav&&!document.getElementById('tscWeekDraftMenu')){const b=document.createElement('button');b.type='button';b.id='tscWeekDraftMenu';b.textContent='📝 Bozze settimanali';b.hidden=true;b.style.display='none';b.onclick=()=>open();nav.append(b);}
-  protect();publicBanner();
- }
+ function publicBanner(){const old=document.getElementById('tscWeekPublicBanner');if(page!=='calendar'){old?.remove();return;}const week=fmt(monday(date)),end=plusDays(week,6);if((db.shifts||[]).some(x=>x.date>=week&&x.date<=end)||db.publishedWeeks?.[week]){old?.remove();return;}if(!old){const b=document.createElement('div');b.id='tscWeekPublicBanner';b.textContent='Calendario della settimana in preparazione / nessun turno ancora pubblicato.';document.getElementById('content')?.prepend(b);}}
+ function clear(){if(root?.isConnected){root.replaceChildren();close();}st=null;ed=null;wideMode();}
+ function protect(){const b=document.getElementById('tscWeekDraftMenu');if(b){b.hidden=!unlocked;b.style.display=unlocked?'':'none';}if(!unlocked)clear();}
+ function mount(){const nav=document.getElementById('nav');if(nav&&!document.getElementById('tscWeekDraftMenu')){const b=document.createElement('button');b.type='button';b.id='tscWeekDraftMenu';b.textContent='📝 Bozze settimanali';b.hidden=true;b.style.display='none';b.onclick=open;nav.append(b);}protect();publicBanner();}
  const previous=render;render=function(){const result=previous.apply(this,arguments);mount();return result;};
- window.addEventListener('click',event=>{if(event.target instanceof Element&&event.target.closest('#lock')){if(root?.isConnected){root.replaceChildren();close();}session=null;editor=null;formDirty=false;}},true);
- window.addEventListener('beforeunload',event=>{if(unsaved()){event.preventDefault();event.returnValue='';}});
- window.addEventListener('pagehide',()=>{if(root?.isConnected){root.replaceChildren();close();}session=null;editor=null;formDirty=false;});
- window.addEventListener('pageshow',protect);mount();window.addEventListener('load',mount);
- // I link di pubblicazione funzionano anche quando l'app e' gia aperta.
- function publicationLink(value,refresh){
-  try{
-   const url=new URL(value,location.href);if(url.origin!==location.origin||url.pathname!==location.pathname)return;
-   const selected=url.searchParams.get('settimana');if(!/^\d{4}-\d{2}-\d{2}$/.test(selected||''))return;
-   if(refresh&&(document.querySelector('#modal.show form')||unsaved())){toast('Calendario pubblicato. Chiudi il modulo aperto prima di cambiare settimana.');return;}
-   date=new Date(weekOf(selected)+'T12:00:00');page='calendar';render();
-   if(refresh&&!(typeof savingRemote!=='undefined'&&savingRemote))pullRemote();
-  }catch{}
- }
- publicationLink(location.href,false);
- if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{const d=event.data;if(d&&typeof d==='object')publicationLink(d.url||d.href||d.data?.url||'',true);});
- window.addEventListener('popstate',()=>publicationLink(location.href,true));
+ window.addEventListener('click',event=>{if(event.target instanceof Element&&event.target.closest('#lock'))clear();},true);
+ window.addEventListener('pagehide',clear);window.addEventListener('pageshow',protect);
+ window.addEventListener('beforeunload',event=>{if(dirty()){event.preventDefault();event.returnValue='';}});
+ const modalNode=document.getElementById('modal');if(modalNode)new MutationObserver(wideMode).observe(modalNode,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+ function publicationLink(value,refresh){try{const u=new URL(value,location.href);if(u.origin!==location.origin||u.pathname!==location.pathname)return;const selected=u.searchParams.get('settimana');if(!/^\d{4}-\d{2}-\d{2}$/.test(selected||''))return;if(refresh&&(document.querySelector('#modal.show form')||dirty())){toast('Calendario pubblicato: chiudi il modulo prima di cambiare settimana.');return;}date=new Date(mondayOf(selected)+'T12:00:00');page='calendar';render();const sync=document.getElementById('syncStatus')?.textContent||'';if(refresh&&!(typeof savingRemote!=='undefined'&&savingRemote)&&!/non salvato|solo locale|connessione.*non riuscita/i.test(sync))pullRemote();}catch{}}
+ publicationLink(location.href,false);if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{const d=event.data;if(d&&typeof d==='object')publicationLink(d.url||d.href||d.data?.url||'',true);});window.addEventListener('popstate',()=>publicationLink(location.href,true));
+ mount();window.addEventListener('load',mount);
 })();
 </script>
 
