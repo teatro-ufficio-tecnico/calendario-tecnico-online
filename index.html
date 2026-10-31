@@ -1513,6 +1513,21 @@ function accordions(root){const tokens=norm(document.getElementById('search')?.v
  const entries=[];
  for(const row of root.querySelectorAll('.weekrow')){const first=row.querySelector(':scope > .cell[data-cell-type="tech"]'),label=row.querySelector(':scope > .label');if(!first||!label)continue;
  const id=first.dataset.cellId,t=db.tech.find(t=>String(t.id)===String(id)),found=tokens.length>0&&tokens.every(token=>norm(t?.name).includes(token));
+ // Desktop: etichetta normale e tutti i giorni sempre aperti. L'accordion resta solo mobile.
+ if(!mobile){
+  const toggle=label.querySelector('.tsc-tech-toggle');
+  if(toggle){
+   while(toggle.firstChild){
+    const child=toggle.firstChild;
+    if(child.classList?.contains('tsc-tech-arrow')||child.classList?.contains('tsc-tech-count'))child.remove();
+    else label.insertBefore(child,toggle);
+   }
+   toggle.remove();
+  }
+  row.classList.add('tsc-tech-row');row.classList.remove('tsc-tech-collapsed');row.classList.toggle('tsc-tech-found',found);
+  row.querySelectorAll(':scope > .cell').forEach(cell=>cell.style.setProperty('display','block','important'));
+  entries.push({row,found});continue;
+ }
  let button=label.querySelector('.tsc-tech-toggle');if(!button){button=document.createElement('button');button.type='button';button.className='tsc-tech-toggle';const arrow=document.createElement('span');arrow.className='tsc-tech-arrow';arrow.setAttribute('aria-hidden','true');button.append(arrow);while(label.firstChild)button.append(label.firstChild);const badge=document.createElement('span');badge.className='tsc-tech-count';button.append(badge);label.append(button);}
  const cells=[...row.querySelectorAll(':scope > .cell')],period=mobile?fmt(plus(monday(date),giornoMobile)):fmt(monday(date)),key=id+'|'+(mobile?'day:':'week:')+period;
  button.dataset.techKey=key;const open=opened.has(key)?opened.get(key):found;
