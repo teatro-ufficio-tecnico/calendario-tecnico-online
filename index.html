@@ -1660,6 +1660,20 @@ window.addEventListener('resize',schedule);window.addEventListener('load',schedu
       return result;
     } finally { clearTimeout(timer); }
   };
+  window.calendarEditorWeekRequest = async function (body) {
+    if (!unlocked || !pinInMemory) throw new Error('Accedi come editor per gestire le bozze.');
+    const currentGeneration=generation,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
+    try {
+      const response=await fetch('https://ohmofthdkjkttdyjuxwv.supabase.co/functions/v1/calendar-week-drafts',{
+        method:'POST',cache:'no-store',signal:controller.signal,
+        headers:{'Content-Type':'application/json','x-calendar-secret':pinInMemory},body:JSON.stringify(body)
+      });
+      const result=await response.json().catch(()=>null);
+      if(!unlocked||!pinInMemory||generation!==currentGeneration)throw new Error('Accesso editor terminato.');
+      if(!response.ok||!result?.ok){const error=new Error(result?.error||'Funzione bozze non disponibile. Verifica SQL, Deploy e JWT.');error.status=response.status;throw error;}
+      return result;
+    }finally{clearTimeout(timer);}
+  };
   window.calendarEditorPinInfo = function () {
     if (!unlocked) return window.calendarEditorAccess();
     tell('Per cambiare il PIN unico modifica PUSH_ADMIN_SECRET nei Secrets di Supabase. Deve avere 6 caratteri. Poi premi Blocca e accedi di nuovo.');
@@ -1907,6 +1921,190 @@ window.addEventListener('resize',schedule);window.addEventListener('load',schedu
  window.addEventListener('pagehide',()=>{const root=document.getElementById('tscHoursRoot');if(root){root.replaceChildren();close();}});
  window.addEventListener('pageshow',protect);
  mount();window.addEventListener('load',mount);
+})();
+</script>
+
+
+<style>
+#tscDraftRoot{max-height:76vh;overflow:auto;min-width:0}
+#tscDraftRoot button,#tscDraftRoot input,#tscDraftRoot select{min-height:44px;font-size:16px}
+#tscDraftRoot .wd-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;align-items:center}
+#tscDraftRoot .wd-banner{padding:12px;background:#fff3cd;border:1px solid #e4bd66;border-radius:8px;margin:10px 0;line-height:1.5}
+#tscDraftRoot .wd-published{background:#e7f5ed;border-color:#80b99b}
+#tscDraftRoot .wd-card{padding:12px;border:1px solid #cbd5e1;border-radius:8px;margin:8px 0;overflow-wrap:anywhere}
+#tscDraftRoot .wd-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#tscDraftRoot label{display:grid;gap:5px;font-size:14px}
+#tscDraftRoot .wd-full{grid-column:1/-1}
+#tscDraftRoot .wd-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#tscDraftRoot .wd-checks label,#tscDraftRoot .wd-check{display:flex;align-items:center;gap:8px}
+#tscDraftRoot .wd-checks input,#tscDraftRoot .wd-check input{width:18px;min-height:18px}
+#tscDraftRoot input,#tscDraftRoot select,#tscDraftRoot textarea{box-sizing:border-box;max-width:100%}
+#tscDraftRoot .wd-slot{display:flex;gap:5px;margin:6px 0;align-items:center}
+#tscDraftRoot .wd-slot input{width:110px;min-width:0}
+#tscDraftRoot .wd-preview{overflow:auto;border:1px solid #cbd5e1}
+#tscDraftRoot table{border-collapse:collapse;min-width:1000px;width:100%;font-size:12px}
+#tscDraftRoot th,#tscDraftRoot td{border:1px solid #cbd5e1;padding:8px;vertical-align:top;min-width:110px}
+#tscDraftRoot th{background:#f1f5f9}
+#tscDraftRoot .wd-turn{margin:5px 0;padding:5px;background:#eef2ff;white-space:pre-wrap;overflow-wrap:anywhere}
+#tscDraftStatus{white-space:pre-wrap}
+#tscWeekPublicBanner{padding:10px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;margin:8px 0}
+@media(max-width:500px){#tscDraftRoot .wd-form,#tscDraftRoot .wd-checks{grid-template-columns:1fr}}
+</style>
+<script>
+(()=>{
+ 'use strict';if(window.tscWeeklyDraftsV1)return;window.tscWeeklyDraftsV1=true;
+ const e=x=>esc(String(x??'')),copy=x=>JSON.parse(JSON.stringify(x));
+ let session=null,root=null,editor=null,formDirty=false,loadGeneration=0;
+ function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+ function weekOf(value){const d=new Date(value+'T12:00:00');if(!Number.isFinite(d.getTime()))throw new Error('Data non valida.');d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d);}
+ function addDays(value,n){const d=new Date(value+'T12:00:00');d.setDate(d.getDate()+n);return iso(d);}
+ function human(v){return String(v).split('-').reverse().join('/');}
+ function times(s){if(s.withoutTime||['riposo','ferie','festivo'].includes(s.dayType)||!s.slots?.length)return 'Senza orario';return s.slots.map(x=>x.start+'–'+x.end+(x.end<=x.start?' (+1g)':'')).join(' · ');}
+ function names(s){return (s.tech||[]).map(id=>session.catalog.tech.find(t=>String(t.id)===String(id))?.name||'Tecnico '+id).join(', ')||'Nessun tecnico assegnato';}
+ function unsaved(){return !!session?.dirty||formDirty;}
+ function apply(data){session={week:data.week,end:data.end,revision:data.draft?.revision??null,state:data.draft?.state??'none',shifts:copy(data.draft?.state==='draft'?data.draft.shifts:data.publicShifts),publicShifts:copy(data.publicShifts),catalog:data.catalog,dirty:false,preview:false,busy:false,message:''};editor=null;formDirty=false;}
+ function message(value){if(session)session.message=value;const el=document.getElementById('tscDraftStatus');if(el)el.textContent=value;}
+ function alive(){return unlocked&&root?.isConnected;}
+ async function request(action,extra={}){
+  if(!alive()||session.busy)return null;
+  session.busy=true;const thisSession=session;paint();
+  try{const data=await window.calendarEditorWeekRequest({action,week:session.week,revision:session.revision,...extra});if(!alive()||session!==thisSession)return null;return data;}
+  catch(error){if(alive()&&session===thisSession)message(error.name==='AbortError'?'Connessione scaduta. Ricarica la settimana prima di riprovare: il server potrebbe aver concluso l’operazione.':error.message);return null;}
+  finally{if(session===thisSession){session.busy=false;if(alive())paint();}}
+ }
+ function makeRoot(){modal('📝 Bozze settimanali · Solo editor','<div id="tscDraftRoot"></div><div class="actions"><button type="button" id="tscDraftClose">Chiudi</button></div>');root=document.getElementById('tscDraftRoot');document.getElementById('tscDraftClose').onclick=()=>{if(unsaved()&&!confirm('Ci sono modifiche non salvate. Chiudere? Restano solo nella memoria di questa pagina finché non la ricarichi.'))return;close();};}
+ async function load(week){
+  if(unsaved()&&!confirm('Ricaricare e scartare le modifiche non salvate?'))return;
+  if(session?.busy)return;
+  try{week=weekOf(week);}catch(error){message(error.message);return;}
+  if(!root?.isConnected)makeRoot();
+  const requestedRoot=root,loadID=++loadGeneration;
+  root.innerHTML='<p role="status">Verifica editor e caricamento settimana…</p>';
+  try{const result=await window.calendarEditorWeekRequest({action:'get',week});if(!alive()||root!==requestedRoot||loadGeneration!==loadID)return;apply(result);paint();}
+  catch(error){if(alive()&&root===requestedRoot&&loadGeneration===loadID){root.innerHTML='<p id="tscDraftStatus" role="status"></p><button type="button" id="tscDraftRetry">Riprova</button>';message(error.message);document.getElementById('tscDraftRetry').onclick=()=>load(week);}}
+ }
+ function open(week){
+  if(!unlocked)return toast('Accedi come editor per aprire le bozze.');
+  if(document.querySelector('#modal.show form')&&!document.getElementById('tscDraftRoot'))return toast('Chiudi o salva il modulo aperto prima delle bozze.');
+  const menu=document.getElementById('mobileCompactMenu');if(menu)menu.open=false;
+  if(session&&unsaved()&&!week){makeRoot();paint();return;}
+  load(week||addDays(weekOf(iso(new Date())),7));
+ }
+ function preview(){
+  const days=Array.from({length:7},(_,i)=>addDays(session.week,i));
+  const tech=copy(session.catalog.tech),known=new Set(tech.map(t=>String(t.id)));
+  for(const s of session.shifts)for(const id of s.tech||[])if(!known.has(String(id))){known.add(String(id));tech.push({id,name:'Tecnico '+id});}
+  let html='<div class="wd-preview"><table><thead><tr><th>Tecnico</th>'+days.map(d=>'<th>'+e(human(d))+'</th>').join('')+'</tr></thead><tbody>';
+  for(const t of tech)html+='<tr><th>'+e(t.name)+'</th>'+days.map(day=>'<td>'+session.shifts.filter(s=>s.date===day&&(s.tech||[]).some(id=>String(id)===String(t.id))).map(s=>'<div class="wd-turn"><b>'+e(times(s))+'</b><br>'+e(s.title)+'<br>'+e(s.space)+'<br>'+e(s.status)+'</div>').join('')+'</td>').join('')+'</tr>';
+  html+='</tbody></table></div>';
+  const empty=session.shifts.filter(s=>!s.tech?.length);if(empty.length)html+='<p class="wd-banner">Turni senza tecnici assegnati: '+empty.length+'.</p>'+empty.map(card).join('');
+  return html;
+ }
+ function card(s,index){return '<div class="wd-card"><b>'+e(human(s.date))+' · '+e(s.title)+'</b><br>'+e(times(s))+'<br>'+e(names(s))+'<br>'+e(s.space)+' · '+e(s.status)+(session.state==='draft'&&!session.preview?'<div class="wd-tools"><button type="button" data-wd-edit="'+index+'">Modifica</button><button type="button" data-wd-delete="'+index+'">Elimina dalla bozza</button></div>':'')+'</div>';}
+ function paint(){
+  if(!alive()||!session)return;
+  if(editor!==null){paintEditor();return;}
+  const lock=session.busy?' disabled':'',isDraft=session.state==='draft';
+  root.innerHTML='<div class="wd-tools"><label>Settimana (lunedì)<input type="date" id="wdWeek" value="'+e(session.week)+'"'+lock+'></label><button type="button" data-wd="load"'+lock+'>Carica settimana</button></div><div class="wd-banner '+(!isDraft?'wd-published':'')+'">'+(session.preview?'👁 ANTEPRIMA PRIVATA — NON PUBBLICATA':isDraft?'🔒 BOZZA — NON PUBBLICATA':'Versione pubblica / nessuna bozza attiva')+'<br>Dal '+e(human(session.week))+' al '+e(human(session.end))+(session.dirty?'<br>Modifiche non ancora salvate online.':'')+'</div><p>La bozza riguarda solo i turni tecnici. I tecnici continuano a vedere l’ultima versione pubblicata. Questa anteprima non pubblica nulla.</p><div class="wd-tools">'+(!isDraft?'<button type="button" data-wd="begin"'+lock+'>✏️ Crea bozza riservata</button>':session.preview?'<button type="button" data-wd="back"'+lock+'>Torna alla bozza</button><button type="button" class="primary" data-wd="publish"'+lock+'>✅ Pubblica settimana</button>':'<button type="button" data-wd="new"'+lock+'>＋ Nuovo turno in bozza</button><button type="button" data-wd="save"'+lock+'>Salva bozza online</button><button type="button" data-wd="download"'+lock+'>Scarica copia bozza</button><button type="button" data-wd="reset"'+lock+'>Ricrea dal pubblicato</button><button type="button" data-wd="preview"'+lock+'>👁 Anteprima bozza</button>')+'</div><p id="tscDraftStatus" role="status"></p>'+(session.preview?preview():session.shifts.length?session.shifts.map(card).join(''):'<p>Nessun turno in questa settimana.</p>');
+  message(session.message||'');
+  root.querySelectorAll('button').forEach(b=>{b.disabled=session.busy;});
+  root.querySelectorAll('[data-wd]').forEach(b=>b.onclick=()=>action(b.dataset.wd));
+  root.querySelectorAll('[data-wd-edit]').forEach(b=>b.onclick=()=>{editor={index:Number(b.dataset.wdEdit),value:copy(session.shifts[Number(b.dataset.wdEdit)])};formDirty=false;paint();});
+  root.querySelectorAll('[data-wd-delete]').forEach(b=>b.onclick=()=>{if(confirm('Eliminare questo turno SOLO dalla bozza?')){session.shifts.splice(Number(b.dataset.wdDelete),1);session.dirty=true;paint();}});
+ }
+ async function save(){
+  if(!session.dirty)return true;
+  const data=await request('save',{shifts:copy(session.shifts)});if(!data)return false;
+  apply(data);message('Bozza salvata online. Nessuna notifica inviata.');paint();return true;
+ }
+ async function action(name){
+  if(!alive()||session.busy)return;
+  if(name==='load')return load(document.getElementById('wdWeek').value);
+  if(name==='begin'){const data=await request('begin');if(data){apply(data);message('Bozza privata pronta. I turni pubblici non sono cambiati.');paint();}return;}
+  if(name==='new'){editor={index:-1,value:{id:crypto.randomUUID(),date:session.week,title:'',space:'',slots:[{start:'09:00',end:'13:00'}],tech:[],roles:['Tecnico'],need:1,status:'In attesa',notes:'',equipment:'',van:false,dayType:'lavoro',withoutTime:false}};formDirty=false;paint();return;}
+  if(name==='download'){
+   const blob=new Blob([JSON.stringify({week:session.week,end:session.end,revision:session.revision,shifts:session.shifts},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='bozza-privata-'+session.week+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
+  }
+  if(name==='reset'){
+   if(!confirm('ATTENZIONE: sostituire la bozza con i turni attualmente pubblici? Le modifiche private salvate e non salvate verranno scartate. Scarica prima una copia se vuoi conservarle. I turni pubblici non cambiano.'))return;
+   const data=await request('reset');if(data){apply(data);message('Bozza ricreata dalla versione pubblica attuale.');paint();}return;
+  }
+  if(name==='save')return save();
+  if(name==='preview'){if(await save()){session.preview=true;message('Anteprima della bozza salvata. Per renderla pubblica serve la conferma.');paint();}return;}
+  if(name==='back'){session.preview=false;paint();return;}
+  if(name==='publish'){
+   if(!session.preview||session.dirty)return message('Salva la bozza e apri prima l’anteprima.');
+   const sync=document.getElementById('syncStatus')?.textContent||'';
+   if((typeof savingRemote!=='undefined'&&savingRemote)||/non salvato|solo locale|connessione.*non riuscita|salvataggio online in corso/i.test(sync))return message('Attendi la sincronizzazione del calendario prima di pubblicare.');
+   if(!confirm('Pubblicare i turni dal '+human(session.week)+' al '+human(session.end)+'?\nSostituiranno la versione pubblica di QUESTA settimana. Verrà richiesta una notifica agli iscritti, salvo pausa generale.'))return;
+   const data=await request('publish');if(!data)return;
+   apply(data);message('Settimana pubblicata. La notifica viene elaborata dal servizio esistente.');paint();
+   await pullRemote();mount();
+  }
+ }
+ function checkboxList(values,selected,name){return values.map(v=>{const value=typeof v==='object'?String(v.id):String(v),label=typeof v==='object'?v.name:v;return '<label><input type="checkbox" name="'+name+'" value="'+e(value)+'"'+(selected.map(String).includes(value)?' checked':'')+'>'+e(label)+'</label>';}).join('');}
+ function paintEditor(){
+  if(!alive())return;const s=editor.value;
+  const technicians=copy(session.catalog.tech),ids=new Set(technicians.map(t=>String(t.id)));for(const id of s.tech||[])if(!ids.has(String(id)))technicians.push({id,name:'Tecnico non più in elenco ('+id+')'});
+  root.innerHTML='<div class="wd-banner">🔒 MODIFICA TURNO IN BOZZA — NON PUBBLICATO</div><form id="wdTurnForm"><div class="wd-form"><label>Data<input name="date" type="date" required min="'+session.week+'" max="'+session.end+'" value="'+e(s.date)+'"></label><label>Tipo giornata<select name="dayType">'+[['lavoro','Lavoro'],['riposo','Riposo'],['ferie','Ferie'],['festivo','Festivo']].map(([v,l])=>'<option value="'+v+'"'+((s.dayType||'lavoro')===v?' selected':'')+'>'+l+'</option>').join('')+'</select></label><label class="wd-full">Attività / produzione<input name="title" value="'+e(s.title)+'" maxlength="200"></label><label>Spazio<input name="space" list="wdSpaces" value="'+e(s.space)+'"><datalist id="wdSpaces">'+session.catalog.spaces.map(v=>'<option value="'+e(v)+'">').join('')+'</datalist></label><label>Stato<select name="status">'+['Confermato','In attesa','Da coprire'].map(v=>'<option'+(v===s.status?' selected':'')+'>'+v+'</option>').join('')+'</select></label><label class="wd-full wd-check"><input type="checkbox" name="withoutTime"'+(s.withoutTime?' checked':'')+'>Senza orario</label><div class="wd-full"><span>Fasce orarie</span><div id="wdSlots"></div><button type="button" id="wdAddSlot">＋ Fascia</button></div><div class="wd-full"><span>Tecnici</span><div class="wd-checks">'+checkboxList(technicians,s.tech||[],'tech')+'</div></div><div class="wd-full"><span>Mansioni</span><div class="wd-checks">'+checkboxList(session.catalog.roles,s.roles||[],'roles')+'</div></div><label>Numero tecnici richiesti<input type="number" min="0" max="1000" name="need" value="'+e(s.need??1)+'"></label><label class="wd-check"><input type="checkbox" name="van"'+(s.van?' checked':'')+'>Richiede furgone</label><label class="wd-full">Attrezzatura<textarea name="equipment" rows="2">'+e(s.equipment)+'</textarea></label><label class="wd-full">Note<textarea name="notes" rows="3">'+e(s.notes)+'</textarea></label></div><div class="wd-tools"><button type="submit" class="primary">Applica alla bozza</button><button type="button" id="wdCancelTurn">Annulla turno</button></div><p id="tscDraftStatus" role="status"></p></form>';
+  const form=document.getElementById('wdTurnForm'),slots=document.getElementById('wdSlots');
+  function capture(){
+   if(!editor)return;
+   const f=new FormData(form);
+   editor.value={...editor.value,date:String(f.get('date')||''),title:String(f.get('title')||''),space:String(f.get('space')||''),dayType:String(f.get('dayType')||'lavoro'),withoutTime:f.has('withoutTime'),status:String(f.get('status')||''),tech:f.getAll('tech').map(String),roles:f.getAll('roles').map(String),need:Number(f.get('need')||1),van:f.has('van'),equipment:String(f.get('equipment')||''),notes:String(f.get('notes')||''),slots:[...slots.children].map(row=>({start:row.querySelector('[data-start]').value,end:row.querySelector('[data-end]').value}))};formDirty=true;
+  }
+  function addSlot(slot={start:'09:00',end:'13:00'}){const row=document.createElement('div');row.className='wd-slot';row.innerHTML='<input type="time" data-start value="'+e(slot.start)+'"><span>–</span><input type="time" data-end value="'+e(slot.end)+'"><button type="button" aria-label="Elimina fascia">×</button>';row.querySelector('button').onclick=()=>{row.remove();capture();};slots.append(row);}
+  (s.slots||[]).forEach(addSlot);if(!slots.children.length)addSlot();
+  document.getElementById('wdAddSlot').onclick=()=>{addSlot();capture();};
+  form.addEventListener('input',capture);form.addEventListener('change',capture);
+  document.getElementById('wdCancelTurn').onclick=()=>{if(formDirty&&!confirm('Scartare le modifiche a questo turno?'))return;editor=null;formDirty=false;paint();};
+  form.onsubmit=event=>{
+   event.preventDefault();if(!unlocked||!form.reportValidity())return;
+   const f=new FormData(form),dayType=String(f.get('dayType')),absent=dayType!=='lavoro',withoutTime=absent||f.has('withoutTime');
+   const title=absent?({riposo:'Riposo',ferie:'Ferie',festivo:'Festivo'}[dayType]):String(f.get('title')||'').trim();
+   if(!title)return message('Inserisci l’attività.');
+   const tech=f.getAll('tech').map(String);if(absent&&!tech.length)return message('Seleziona almeno un tecnico.');
+   const ranges=withoutTime?[]:[...slots.children].map(row=>({start:row.querySelector('[data-start]').value,end:row.querySelector('[data-end]').value}));
+   if(!withoutTime&&(!ranges.length||ranges.some(x=>!x.start||!x.end)))return message('Completa almeno una fascia oraria.');
+   const date=String(f.get('date'));if(date<session.week||date>session.end)return message('La data deve rientrare nella settimana.');
+   const entry={...s,date,title,dayType,withoutTime,slots:ranges,tech,space:absent?'':String(f.get('space')||''),roles:absent?[]:f.getAll('roles').map(String),need:absent?tech.length:Number(f.get('need')||1),status:absent?'Confermato':String(f.get('status')),equipment:absent?'':String(f.get('equipment')||''),van:!absent&&f.has('van'),notes:String(f.get('notes')||'')};
+   if(editor.index<0)session.shifts.push(entry);else session.shifts[editor.index]=entry;
+   session.dirty=true;editor=null;formDirty=false;paint();
+  };
+ }
+ function publicBanner(){
+  const old=document.getElementById('tscWeekPublicBanner');
+  if(page!=='calendar'){old?.remove();return;}
+  const week=fmt(monday(date)),end=addDays(week,6),hasShifts=(db.shifts||[]).some(x=>x.date>=week&&x.date<=end),published=!!db.publishedWeeks?.[week];
+  if(hasShifts||published){old?.remove();return;}
+  if(!old){const b=document.createElement('div');b.id='tscWeekPublicBanner';b.textContent='Calendario della settimana in preparazione / nessun turno ancora pubblicato.';document.getElementById('content')?.prepend(b);}
+ }
+ function protect(){
+  const b=document.getElementById('tscWeekDraftMenu');if(b){b.hidden=!unlocked;b.style.display=unlocked?'':'none';}
+  if(!unlocked){if(root?.isConnected){root.replaceChildren();close();}session=null;editor=null;formDirty=false;}
+ }
+ function mount(){
+  const nav=document.getElementById('nav');if(nav&&!document.getElementById('tscWeekDraftMenu')){const b=document.createElement('button');b.type='button';b.id='tscWeekDraftMenu';b.textContent='📝 Bozze settimanali';b.hidden=true;b.style.display='none';b.onclick=()=>open();nav.append(b);}
+  protect();publicBanner();
+ }
+ const previous=render;render=function(){const result=previous.apply(this,arguments);mount();return result;};
+ window.addEventListener('click',event=>{if(event.target instanceof Element&&event.target.closest('#lock')){if(root?.isConnected){root.replaceChildren();close();}session=null;editor=null;formDirty=false;}},true);
+ window.addEventListener('beforeunload',event=>{if(unsaved()){event.preventDefault();event.returnValue='';}});
+ window.addEventListener('pagehide',()=>{if(root?.isConnected){root.replaceChildren();close();}session=null;editor=null;formDirty=false;});
+ window.addEventListener('pageshow',protect);mount();window.addEventListener('load',mount);
+ // I link di pubblicazione funzionano anche quando l'app e' gia aperta.
+ function publicationLink(value,refresh){
+  try{
+   const url=new URL(value,location.href);if(url.origin!==location.origin||url.pathname!==location.pathname)return;
+   const selected=url.searchParams.get('settimana');if(!/^\d{4}-\d{2}-\d{2}$/.test(selected||''))return;
+   if(refresh&&(document.querySelector('#modal.show form')||unsaved())){toast('Calendario pubblicato. Chiudi il modulo aperto prima di cambiare settimana.');return;}
+   date=new Date(weekOf(selected)+'T12:00:00');page='calendar';render();
+   if(refresh&&!(typeof savingRemote!=='undefined'&&savingRemote))pullRemote();
+  }catch{}
+ }
+ publicationLink(location.href,false);
+ if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{const d=event.data;if(d&&typeof d==='object')publicationLink(d.url||d.href||d.data?.url||'',true);});
+ window.addEventListener('popstate',()=>publicationLink(location.href,true));
 })();
 </script>
 
